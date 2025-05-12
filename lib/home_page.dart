@@ -458,7 +458,7 @@ class _HomePageState extends State<HomePage> {
                   MaterialPageRoute(
                     builder: (context) => const AdminPage(),
                   ),
-                ).then((_) => _loadHotels());
+                ).then((_) => _synchronizeData()); // MODIFIED HERE
               },
             ),
           ],
