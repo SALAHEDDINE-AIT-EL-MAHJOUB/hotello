@@ -26,6 +26,7 @@ class _ExplorePageState extends State<ExplorePage> {
   bool _isLocating = false;
   List<Map<String, dynamic>> _sortedHotelsByDistance = [];
   List<Map<String, dynamic>> _topRatedHotels = [];
+  bool _isDistanceSortActive = false; // Nouveau: pour gérer le mode de tri par distance
 
   // Liste des mots-clés disponibles
   final List<String> _keywords = ['Wifi', 'Piscine', 'Spa', 'Restaurant', 'Parking', 'Gym', 'Vue mer', 'Pet-friendly'];
@@ -40,12 +41,10 @@ class _ExplorePageState extends State<ExplorePage> {
   void initState() {
     super.initState();
     _loadHotels(); // Initial load
-    // Start auto-refresh timer
     _refreshTimer = Timer.periodic(_refreshInterval, (timer) {
       print("Auto-refreshing hotels...");
       _loadHotels();
     });
-    // _requestLocationPermission(); // Optionnel: demander au démarrage
   }
 
   @override
@@ -56,44 +55,62 @@ class _ExplorePageState extends State<ExplorePage> {
   }
 
   Future<void> _requestLocationPermission() async {
+    if (!mounted) return;
+    setState(() {
+      _isLocating = true; // Pour l'indicateur du bouton
+      // Tentative d'activation du mode distance, mais sera confirmé après obtention de la loc.
+    });
+
     var status = await Permission.location.status;
+    bool permissionGranted = status.isGranted;
+
     if (status.isDenied || status.isRestricted || status.isPermanentlyDenied) {
-      if (await Permission.location.request().isGranted) {
-        _getCurrentLocationAndSort();
-      } else {
-        // L'utilisateur n'a pas accordé la permission
-        if(mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Permission de localisation refusée.'))
-          );
-        }
+      permissionGranted = await Permission.location.request().isGranted;
+    }
+
+    if (permissionGranted) {
+      await _getCurrentLocationAndSort();
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Permission de localisation refusée.')),
+        );
+        setState(() {
+          _isDistanceSortActive = false; // Échec de l'activation
+          _isLocating = false;
+        });
       }
-    } else if (status.isGranted) {
-      _getCurrentLocationAndSort();
     }
   }
 
   Future<void> _getCurrentLocationAndSort() async {
-    if (!mounted) return;
-    setState(() {
-      _isLocating = true;
-    });
+    // _isLocating devrait déjà être true
     try {
       _currentPosition = await Geolocator.getCurrentPosition(
           desiredAccuracy: LocationAccuracy.high);
-      _sortHotelsByDistance();
+      if (mounted) {
+        setState(() {
+          _isDistanceSortActive = true; // Localisation obtenue, active le mode
+        });
+        _sortHotelsByDistance(useBaseHotels: true); // Trie tous les hôtels par distance
+      }
     } catch (e) {
       print("Erreur de localisation: $e");
-      if(mounted) {
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Impossible d\'obtenir la position: $e'))
+          SnackBar(content: Text('Impossible d\'obtenir la position: $e')),
         );
+        setState(() {
+          _isDistanceSortActive = false; // Échec de l'activation
+          _currentPosition = null; // Assure que la position est nulle en cas d'erreur
+        });
       }
     } finally {
-      if (!mounted) return;
-      setState(() {
-        _isLocating = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isLocating = false;
+        });
+      }
     }
   }
 
@@ -106,23 +123,34 @@ class _ExplorePageState extends State<ExplorePage> {
     return 12742 * asin(sqrt(a)); // 2 * R; R = 6371 km
   }
 
-  void _sortHotelsByDistance() {
+  void _sortHotelsByDistance({bool useBaseHotels = false}) {
+    if (!mounted) return;
+
     if (_currentPosition == null || _hotels.isEmpty) {
-      if(mounted) setState(() => _sortedHotelsByDistance = _getFilteredHotels());
+      setState(() {
+        // Si pas de position ou pas d'hôtels, _sortedHotelsByDistance reflète les filtres normaux
+        _sortedHotelsByDistance = _getFilteredHotels();
+        // _isDistanceSortActive sera géré par la fonction appelante si _currentPosition est null
+      });
       return;
     }
 
-    List<Map<String, dynamic>> tempHotels = List.from(_getFilteredHotels());
+    List<Map<String, dynamic>> sourceList = useBaseHotels ? _hotels : _getFilteredHotels();
+    List<Map<String, dynamic>> tempHotels = List.from(sourceList);
 
     for (var hotel in tempHotels) {
-      final double? hotelLat = hotel['latitude'] is String ? double.tryParse(hotel['latitude']) : hotel['latitude']?.toDouble();
-      final double? hotelLon = hotel['longitude'] is String ? double.tryParse(hotel['longitude']) : hotel['longitude']?.toDouble();
+      final double? hotelLat = hotel['latitude'] is String
+          ? double.tryParse(hotel['latitude'])
+          : hotel['latitude']?.toDouble();
+      final double? hotelLon = hotel['longitude'] is String
+          ? double.tryParse(hotel['longitude'])
+          : hotel['longitude']?.toDouble();
 
       if (hotelLat != null && hotelLon != null) {
         hotel['distance'] = _calculateDistance(_currentPosition!.latitude,
             _currentPosition!.longitude, hotelLat, hotelLon);
       } else {
-        hotel['distance'] = double.infinity; // Mettre loin si pas de coordonnées
+        hotel['distance'] = double.infinity;
       }
     }
 
@@ -131,11 +159,10 @@ class _ExplorePageState extends State<ExplorePage> {
       final distB = b['distance'] ?? double.infinity;
       return distA.compareTo(distB);
     });
-    if(mounted) {
-      setState(() {
-        _sortedHotelsByDistance = tempHotels;
-      });
-    }
+
+    setState(() {
+      _sortedHotelsByDistance = tempHotels;
+    });
   }
 
   Future<void> _loadHotels() async {
@@ -183,7 +210,9 @@ class _ExplorePageState extends State<ExplorePage> {
             _hotels = loadedHotels;
             _cities = uniqueCities.toList()..sort();
             _isLoading = false;
-            _sortHotelsByDistance(); // Trier initialement ou après chargement
+            // Trie initialement basé sur les filtres actuels (aucun si c'est le premier chargement)
+            // _isDistanceSortActive sera false ici, donc _sortHotelsByDistance triera _getFilteredHotels()
+            _sortHotelsByDistance(); 
           });
           List<Map<String, dynamic>> sortedByRating = List.from(loadedHotels);
           sortedByRating.sort((a, b) {
@@ -259,10 +288,9 @@ class _ExplorePageState extends State<ExplorePage> {
 
   @override
   Widget build(BuildContext context) {
-    // Utiliser _sortedHotelsByDistance si _currentPosition est défini, sinon _getFilteredHotels()
-    final hotelsToDisplay = _currentPosition != null && _sortedHotelsByDistance.isNotEmpty 
-                           ? _sortedHotelsByDistance 
-                           : _getFilteredHotels();
+    final hotelsToDisplay = _isDistanceSortActive && _currentPosition != null
+        ? _sortedHotelsByDistance
+        : _getFilteredHotels();
     return Scaffold(
       body: SafeArea(
         child: Column(
@@ -318,7 +346,9 @@ class _ExplorePageState extends State<ExplorePage> {
                   ),
                   contentPadding: const EdgeInsets.symmetric(vertical: 16),
                 ),
-                onChanged: (_) => setState(() {}),
+                onChanged: (_) => setState(() {
+                  _isDistanceSortActive = false; // Désactive le tri par distance
+                }),
               ),
             ),
 
@@ -330,10 +360,11 @@ class _ExplorePageState extends State<ExplorePage> {
                   // All button
                   FilterChip(
                     label: const Text('All'),
-                    selected: _selectedCity == null,
+                    selected: _selectedCity == null && !_isDistanceSortActive, // Ajusté
                     onSelected: (selected) {
                       setState(() {
                         _selectedCity = null;
+                        _isDistanceSortActive = false; // Désactive le tri par distance
                       });
                     },
                     selectedColor: Colors.deepPurple.withOpacity(0.2),
@@ -355,9 +386,10 @@ class _ExplorePageState extends State<ExplorePage> {
                         ),
                       ],
                     ),
-                    selected: _isPriceFiltered,
+                    selected: _isPriceFiltered && !_isDistanceSortActive, // Ajusté
                     onSelected: (selected) {
                       setState(() {
+                        _isDistanceSortActive = false; // Désactive le tri par distance
                         if (_isPriceFiltered && !selected) {
                           // Deselecting the filter
                           _isPriceFiltered = false;
@@ -387,7 +419,7 @@ class _ExplorePageState extends State<ExplorePage> {
                 itemCount: _cities.length,
                 itemBuilder: (context, index) {
                   final city = _cities[index];
-                  final isSelected = city == _selectedCity;
+                  final isSelected = city == _selectedCity && !_isDistanceSortActive; // Ajusté
                   
                   return Padding(
                     padding: const EdgeInsets.only(right: 8),
@@ -397,6 +429,7 @@ class _ExplorePageState extends State<ExplorePage> {
                       onSelected: (selected) {
                         setState(() {
                           _selectedCity = selected ? city : null;
+                          _isDistanceSortActive = false; // Désactive le tri par distance
                         });
                       },
                       selectedColor: Colors.deepPurple.withOpacity(0.2),
@@ -429,7 +462,7 @@ class _ExplorePageState extends State<ExplorePage> {
                 itemCount: _keywords.length,
                 itemBuilder: (context, index) {
                   final keyword = _keywords[index];
-                  final isSelected = _selectedKeywords.contains(keyword);
+                  final isSelected = _selectedKeywords.contains(keyword) && !_isDistanceSortActive; // Ajusté
                   
                   return Padding(
                     padding: const EdgeInsets.only(right: 8),
@@ -438,6 +471,7 @@ class _ExplorePageState extends State<ExplorePage> {
                       selected: isSelected,
                       onSelected: (selected) {
                         setState(() {
+                          _isDistanceSortActive = false; // Désactive le tri par distance
                           if (selected) {
                             _selectedKeywords.add(keyword);
                           } else {
