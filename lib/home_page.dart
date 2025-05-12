@@ -841,34 +841,8 @@ void _showChatbotDialog() {
                 mainAxisAlignment: MainAxisAlignment.end, // Aligner en bas
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'Trouvez votre prochain séjour',
-                    style: TextStyle(
-                        fontSize: 22, // Ajusté
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    'Découvrez des offres exclusives sur les hôtels et plus encore.', // Texte plus engageant
-                    style: TextStyle(fontSize: 14, color: Colors.white.withOpacity(0.85)), // Style
-                  ),
-                  const SizedBox(height: 18),
-                  TextField(
-                    controller: _searchController,
-                    decoration: InputDecoration(
-                      hintText: 'Ex: Paris, Hôtel de la plage...',
-                      hintStyle: TextStyle(color: Colors.grey.shade500), // Style
-                      prefixIcon: Icon(Icons.search, color: Colors.grey.shade600),
-                      filled: true,
-                      fillColor: Colors.white.withOpacity(0.95), // Légère transparence
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(25), // Plus arrondi
-                        borderSide: BorderSide.none,
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 20), // Ajusté
-                    ),
-                  ),
+                  
+                  
                 ],
               ),
             ),
