@@ -837,14 +837,7 @@ void _showChatbotDialog() {
                   end: Alignment.bottomRight,
                 ),
               ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.end, // Aligner en bas
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  
-                  
-                ],
-              ),
+             
             ),
           ),
           actions: [ // Actions pour SliverAppBar
