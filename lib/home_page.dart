@@ -815,69 +815,51 @@ void _showChatbotDialog() {
 
     return CustomScrollView(
       slivers: [
-        SliverAppBar( // Utilisation de SliverAppBar pour un effet de défilement
-          expandedHeight: 240.0, // Hauteur de l'en-tête étendu
+        SliverAppBar(
+          expandedHeight: 120.0, // MODIFIÉ ICI: Hauteur réduite pour un design plus compact
           floating: false,
-          pinned: true, // L'AppBar reste visible en haut
+          pinned: true, 
           snap: false,
-          backgroundColor: Colors.deepPurple.shade400, // Couleur de l'AppBar
+          backgroundColor: Colors.deepPurple.shade400, 
           elevation: 2,
+          leading: Builder( // Assurez-vous que le bouton du drawer s'affiche correctement
+            builder: (BuildContext context) {
+              return IconButton(
+                icon: const Icon(Icons.menu_rounded, color: Colors.white), // Style
+                onPressed: () {
+                  Scaffold.of(context).openDrawer();
+                },
+                tooltip: MaterialLocalizations.of(context).openAppDrawerTooltip,
+              );
+            },
+          ),
           flexibleSpace: FlexibleSpaceBar(
-            centerTitle: true,
+            centerTitle: true, // Peut être true ou false selon votre préférence pour le titre réduit
             titlePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            title: _isSynchronizing // Afficher le loader de synchro ou rien
+            title: _isSynchronizing 
                 ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2,))
-                : const SizedBox.shrink(), // MODIFIÉ ICI: Supprime le texte "Hotello"
-            background: Container( // Contenu de l'en-tête étendu
-              padding: const EdgeInsets.fromLTRB(16, 60, 16, 16), // Ajuster le padding supérieur pour l'AppBar
+                : const Text('Hotello', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 18)), // Remis un titre simple pour l'AppBar réduite
+            background: Container( 
+              // Le padding a été enlevé car le child Column est supprimé
               decoration: BoxDecoration(
-                gradient: LinearGradient( // Dégradé subtil
+                gradient: LinearGradient( 
                   colors: [Colors.deepPurple.shade400, Colors.deepPurple.shade600],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
               ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.end, // Aligner en bas
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Trouvez votre prochain séjour',
-                    style: TextStyle(
-                        fontSize: 22, // Ajusté
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white),
-                  ),
-                  
-                  const SizedBox(height: 18),
-                  TextField(
-                    controller: _searchController,
-                    decoration: InputDecoration(
-                      hintText: 'Ex: Paris, Hôtel de la plage...',
-                      hintStyle: TextStyle(color: Colors.grey.shade500), // Style
-                      prefixIcon: Icon(Icons.search, color: Colors.grey.shade600),
-                      filled: true,
-                      fillColor: Colors.white.withOpacity(0.95), // Légère transparence
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(25), // Plus arrondi
-                        borderSide: BorderSide.none,
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 20), // Ajusté
-                    ),
-                  ),
-                ],
-              ),
+              // La Column a été supprimée d'ici
             ),
           ),
-          actions: [ // Actions pour SliverAppBar
+          actions: [ 
             if (!_isSynchronizing)
               IconButton(
-                icon: const Icon(Icons.sync_rounded, color: Colors.white), // Icône différente
+                icon: const Icon(Icons.sync_rounded, color: Colors.white), 
                 onPressed: _synchronizeData,
                 tooltip: 'Synchroniser les données',
               ),
             IconButton(
-              icon: const Icon(Icons.notifications_none_rounded, color: Colors.white), // Icône différente
+              icon: const Icon(Icons.notifications_none_rounded, color: Colors.white), 
               onPressed: () {
                 Navigator.push(
                   context,
@@ -888,7 +870,7 @@ void _showChatbotDialog() {
             ),
             if (_isAdmin)
               IconButton(
-                icon: const Icon(Icons.admin_panel_settings_outlined, color: Colors.white), // Icône différente
+                icon: const Icon(Icons.admin_panel_settings_outlined, color: Colors.white), 
                 onPressed: () {
                   Navigator.push(
                     context,
