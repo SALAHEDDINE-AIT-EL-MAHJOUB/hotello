@@ -20,7 +20,7 @@ dependencies:
   image_picker: ^1.1.2
   dotted_border: ^2.1.0
   firebase_auth: ^4.19.5 # Remplacez par la version actuelle souhaitée depuis pub.dev
-  shared_preferences: ^2.2.0
+  shared_preferences: ^2.0.0 # Check for the latest version
   firebase_storage: ^11.6.4
   firebase_database: ^10.5.5 # Remplacez par la version actuelle souhaitée depuis pub.dev
   firebase_core: ^2.31.0 # Remplacez par la version actuelle souhaitée depuis pub.dev
