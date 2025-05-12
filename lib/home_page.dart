@@ -323,33 +323,35 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     final List<Widget> _pages = [
-      _buildHomePageContent(), // Use the consolidated home page builder
+      _buildHomePageContent(), 
       const ExplorePage(),
       const BookingsPage(),
       const ProfilePage(),
     ];
 
     return Scaffold(
-      // AppBar is now primarily managed within _buildHomePageContent's CustomScrollView (SliverAppBar)
-      // For other tabs, you might need a different AppBar strategy if they don't have their own.
       body: IndexedStack(
         index: _selectedIndex,
         children: _pages,
       ),
       bottomNavigationBar: BottomNavigationBar(
         items: const <BottomNavigationBarItem>[
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
-          BottomNavigationBarItem(icon: Icon(Icons.search), label: 'Explore'),
-          BottomNavigationBarItem(icon: Icon(Icons.bookmark), label: 'Bookings'),
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
+          BottomNavigationBarItem(icon: Icon(Icons.home_filled), label: 'Accueil'), // Icône remplie pour sélection
+          BottomNavigationBarItem(icon: Icon(Icons.explore_outlined), label: 'Explorer'),
+          BottomNavigationBarItem(icon: Icon(Icons.bookmarks_outlined), label: 'Réservations'),
+          BottomNavigationBarItem(icon: Icon(Icons.person_outline), label: 'Profil'),
         ],
         currentIndex: _selectedIndex,
-        selectedItemColor: Colors.deepPurple,
-        unselectedItemColor: Colors.grey,
+        selectedItemColor: Colors.deepPurple.shade600, // Couleur plus vive
+        unselectedItemColor: Colors.grey.shade600,
         onTap: _onItemTapped,
-        type: BottomNavigationBarType.fixed,
+        type: BottomNavigationBarType.fixed, // Assure que tous les labels sont visibles
+        backgroundColor: Colors.white, // Fond blanc pour la nav bar
+        elevation: 5, // Ombre subtile
+        selectedFontSize: 12, // Style
+        unselectedFontSize: 12, // Style
       ),
-      drawer: _selectedIndex == 0 ? _buildDrawer() : null,
+      drawer: _selectedIndex == 0 ? _buildDrawer() : null, // Drawer seulement pour la page d'accueil
     );
   }
   
@@ -364,146 +366,125 @@ class _HomePageState extends State<HomePage> {
   Widget _buildDrawer() {
     return Drawer(
       child: ListView(
+        padding: EdgeInsets.zero, // Enlever le padding par défaut
         children: [
-          ListTile(
-            leading: const Icon(
-              Icons.home,
-              color: Colors.deepPurple,
+          UserAccountsDrawerHeader( // En-tête plus stylé
+            accountName: Text(
+              username, 
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.white)
             ),
-            title: const Text('Home'),
-            onTap: () {
-              Navigator.pop(context);
-            },
-          ),
-          ListTile(
-            leading: const Icon(
-              Icons.settings,
-              color: Colors.deepPurple,
+            accountEmail: Text(
+              _currentUser?.email ?? 'Mode Invité', 
+              style: const TextStyle(color: Colors.white70)
             ),
-            title: const Text('Settings'),
-            onTap: () {
-              Navigator.pop(context); // Ferme le drawer
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const SettingsPage()),
-              );
-            },
-          ),
-          ListTile(
-            leading: const Icon(
-              Icons.info,
-              color: Colors.deepPurple,
+            currentAccountPicture: CircleAvatar(
+              backgroundColor: Colors.white,
+              child: _buildProfileImage(), // Utilise votre logique d'image de profil
             ),
-            title: const Text('About'),
-            onTap: () {
-              Navigator.pop(context); // Ferme le drawer
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const AboutUsPage()),
-              );
-            },
-          ),
-          ListTile(
-            leading: const Icon(
-              Icons.help,
-              color: Colors.deepPurple,
+            decoration: BoxDecoration(
+              color: Colors.deepPurple.shade400, // Couleur d'en-tête
             ),
-            title: const Text('Help'),
-            onTap: () {
-              Navigator.pop(context); // Ferme le drawer
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const HelpCenterPage()),
-              );
-            },
+            otherAccountsPictures: [ // Exemple d'action rapide
+              IconButton(
+                icon: const Icon(Icons.edit_outlined, color: Colors.white70),
+                onPressed: () {
+                  Navigator.pop(context);
+                  Navigator.push(context, MaterialPageRoute(builder: (context) => const EditProfilePage()));
+                },
+                tooltip: 'Modifier le profil',
+              )
+            ],
           ),
-          // Add Chatbot item before the admin section
-          ListTile(
-            leading: const Icon(
-              Icons.smart_toy, // Robot icon for chatbot
-              color: Colors.deepPurple,
-            ),
-            title: const Text('Chatbot Assistant'),
-            subtitle: const Text('Besoin d\'aide ?'),
-            onTap: () {
-              // TODO: Implement chatbot functionality
-              Navigator.pop(context);
-              _showChatbotDialog();
-            },
-          ),
+          _buildDrawerItem(Icons.home_outlined, 'Accueil', () {
+            Navigator.pop(context);
+            // Déjà sur l'accueil si le drawer est ouvert depuis là
+          }),
+          _buildDrawerItem(Icons.settings_outlined, 'Paramètres', () {
+            Navigator.pop(context);
+            Navigator.push(context, MaterialPageRoute(builder: (context) => const SettingsPage()));
+          }),
+          _buildDrawerItem(Icons.info_outline_rounded, 'À Propos', () {
+            Navigator.pop(context);
+            Navigator.push(context, MaterialPageRoute(builder: (context) => const AboutUsPage()));
+          }),
+          _buildDrawerItem(Icons.help_outline_rounded, 'Centre d\'Aide', () {
+            Navigator.pop(context);
+            Navigator.push(context, MaterialPageRoute(builder: (context) => const HelpCenterPage()));
+          }),
+          _buildDrawerItem(Icons.support_agent_rounded, 'Assistant Hotello', () { // Icône différente
+            Navigator.pop(context);
+            _showChatbotDialog();
+          }, subtitle: 'Besoin d\'aide ?'), // Ajout d'un sous-titre
 
-          const Divider(),
+          const Divider(height: 20, thickness: 0.5, indent: 16, endIndent: 16), // Séparateur stylé
 
           if (_isAdmin) ...[
-            const Padding(
-              padding: EdgeInsets.only(left: 16.0, top: 8.0),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 18.0, vertical: 8.0),
               child: Text(
-                'Admin',
+                'ADMINISTRATION', // Style
                 style: TextStyle(
-                  color: Colors.grey,
-                  fontWeight: FontWeight.bold,
+                  color: Colors.grey.shade600,
+                  fontWeight: FontWeight.w500, // Style
+                  fontSize: 12, // Style
+                  letterSpacing: 0.5, // Style
                 ),
               ),
             ),
-            ListTile(
-              leading: const Icon(
-                Icons.admin_panel_settings,
-                color: Colors.deepPurple,
-              ),
-              title: const Text('Manage Hotels'),
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const AdminPage(),
-                  ),
-                ).then((_) => _synchronizeData()); // MODIFIED HERE
-              },
-            ),
+            _buildDrawerItem(Icons.admin_panel_settings_outlined, 'Gérer les Hôtels', () { // Icône différente
+              Navigator.pop(context);
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const AdminPage()),
+              ).then((_) => _synchronizeData());
+            }),
+            const Divider(height: 20, thickness: 0.5, indent: 16, endIndent: 16), // Séparateur stylé
           ],
-          ListTile(
-            leading: const Icon(
-              Icons.logout,
-              color: Colors.red,
-            ),
-            title: const Text(
-              'Logout',
-              style: TextStyle(color: Colors.red),
-            ),
-            onTap: () async {
-              final prefs = await SharedPreferences.getInstance();
-              final isGuestMode = prefs.getBool('isGuestMode') ?? false;
+          _buildDrawerItem(Icons.logout_rounded, 'Déconnexion', () async { // Icône différente
+            // ... (votre logique de déconnexion existante) ...
+            final prefs = await SharedPreferences.getInstance();
+            final isGuestMode = prefs.getBool('isGuestMode') ?? false;
 
-              if (isGuestMode) {
-                // If already in guest mode, just go to login page
-                Navigator.of(context).pushReplacement(
-                  MaterialPageRoute(builder: (context) => const LoginPage()),
-                );
-              } else {
-                // Sign out from Firebase Auth
-                await FirebaseAuth.instance.signOut();
-
-                // Reset to guest mode
-                await prefs.setBool('isGuestMode', true);
-                await prefs.setString('username', 'Guest');
-
-                // Clear other user data
-                await prefs.remove('email');
-
-                // Reload user data to update UI
+            if (isGuestMode) {
+              Navigator.of(context).pushReplacement(
+                MaterialPageRoute(builder: (context) => const LoginPage()),
+              );
+            } else {
+              await FirebaseAuth.instance.signOut();
+              await prefs.setBool('isGuestMode', true);
+              await prefs.setString('username', 'Guest');
+              await prefs.remove('email');
+              if(mounted) {
                 setState(() {
                   username = 'Guest';
                   _profileImageUrl = null;
+                  _profileImageData = null; // Assurez-vous de réinitialiser cela aussi
+                  _currentUser = null; // Réinitialiser l'utilisateur actuel
+                  _isAdmin = false; // Réinitialiser le statut admin
                 });
-
-                // Close drawer
-                Navigator.pop(context);
+                Navigator.pop(context); // Fermer le drawer
+                 // Optionnel: Naviguer vers la page de connexion après déconnexion
+                Navigator.of(context).pushAndRemoveUntil(
+                  MaterialPageRoute(builder: (context) => const LoginPage()), 
+                  (Route<dynamic> route) => false,
+                );
               }
-            },
-          ),
+            }
+          }, color: Colors.red.shade400), // Couleur pour la déconnexion
         ],
       ),
+    );
+  }
+
+  // Helper pour les items du Drawer
+  Widget _buildDrawerItem(IconData icon, String title, VoidCallback onTap, {Color? color, String? subtitle}) {
+    return ListTile(
+      leading: Icon(icon, color: color ?? Colors.deepPurple.shade300, size: 24), // Style
+      title: Text(title, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500, color: color ?? Colors.black87)), // Style
+      subtitle: subtitle != null ? Text(subtitle, style: TextStyle(fontSize: 12, color: Colors.grey.shade600)) : null, // Style
+      onTap: onTap,
+      dense: true, // Style
+      contentPadding: const EdgeInsets.symmetric(horizontal: 18.0, vertical: 2.0), // Style
     );
   }
 
@@ -516,16 +497,16 @@ class _HomePageState extends State<HomePage> {
         child: Image.memory(
           imageBytes,
           fit: BoxFit.cover,
-          width: 60,
-          height: 60,
+          width: 50, // Ajusté pour UserAccountsDrawerHeader
+          height: 50, // Ajusté
           errorBuilder: (context, error, stackTrace) {
-            print('Error loading base64 image: $error');
-            return _buildFallbackAvatar();
+            return _buildFallbackAvatar(size: 50); // Passer la taille
           },
         ),
       );
     } catch (e) {
       print('Error decoding base64: $e');
+       return _buildFallbackAvatar(size: 50);
     }
   }
 
@@ -535,33 +516,39 @@ class _HomePageState extends State<HomePage> {
       child: Image.network(
         _profileImageUrl!,
         fit: BoxFit.cover,
-        width: 60,
-        height: 60,
+        width: 50, // Ajusté
+        height: 50, // Ajusté
         loadingBuilder: (context, child, loadingProgress) {
           if (loadingProgress == null) return child;
           return const Center(
-            child: CircularProgressIndicator(color: Colors.white)
+            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white) // Style
           );
         },
         errorBuilder: (context, error, stackTrace) {
-          print('Error loading image from URL: $error');
-          return _buildFallbackAvatar();
+          return _buildFallbackAvatar(size: 50);
         },
       ),
     );
   }
-
-  // Image par défaut
-  return _buildFallbackAvatar();
+  return _buildFallbackAvatar(size: 50);
 }
 
-Widget _buildFallbackAvatar() {
-  return Text(
-    username.isNotEmpty ? username[0].toUpperCase() : 'G',
-    style: const TextStyle(
-      fontSize: 24,
-      fontWeight: FontWeight.bold,
-      color: Colors.white,
+Widget _buildFallbackAvatar({double size = 24}) { // Accepte une taille
+  return Container( // Conteneur pour centrer le texte si l'image est dans un CircleAvatar
+    width: size,
+    height: size,
+    decoration: BoxDecoration(
+      color: Colors.deepPurple.shade200, // Couleur de fond pour l'avatar
+      shape: BoxShape.circle,
+    ),
+    alignment: Alignment.center,
+    child: Text(
+      username.isNotEmpty ? username[0].toUpperCase() : 'G',
+      style: TextStyle(
+        fontSize: size * 0.5, // Taille de police relative
+        fontWeight: FontWeight.bold,
+        color: Colors.white,
+      ),
     ),
   );
 }
@@ -828,60 +815,102 @@ void _showChatbotDialog() {
 
     return CustomScrollView(
       slivers: [
-        SliverToBoxAdapter(
-          child: Container(
-            padding: const EdgeInsets.all(16),
-            decoration: const BoxDecoration(
-              color: Colors.deepPurple,
-              // borderRadius: BorderRadius.only(
-              //   bottomLeft: Radius.circular(20),
-              //   bottomRight: Radius.circular(20),
-              // ),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Trouvez votre prochain séjour',
-                  style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white),
+        SliverAppBar( // Utilisation de SliverAppBar pour un effet de défilement
+          expandedHeight: 240.0, // Hauteur de l'en-tête étendu
+          floating: false,
+          pinned: true, // L'AppBar reste visible en haut
+          snap: false,
+          backgroundColor: Colors.deepPurple.shade400, // Couleur de l'AppBar
+          elevation: 2,
+          flexibleSpace: FlexibleSpaceBar(
+            centerTitle: true,
+            titlePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            title: _isSynchronizing // Afficher le nom de l'app ou le loader de synchro
+                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2,))
+                : const Text('Hotello', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 18)),
+            background: Container( // Contenu de l'en-tête étendu
+              padding: const EdgeInsets.fromLTRB(16, 60, 16, 16), // Ajuster le padding supérieur pour l'AppBar
+              decoration: BoxDecoration(
+                gradient: LinearGradient( // Dégradé subtil
+                  colors: [Colors.deepPurple.shade400, Colors.deepPurple.shade600],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
                 ),
-                const SizedBox(height: 8),
-                const Text(
-                  'Recherchez des offres sur les hôtels, les maisons et bien plus encore...',
-                  style: TextStyle(fontSize: 14, color: Colors.white70),
-                ),
-                const SizedBox(height: 20),
-                TextField(
-                  controller: _searchController,
-                  decoration: InputDecoration(
-                    hintText: 'Ex: Paris, Hôtel de la plage...',
-                    hintStyle: TextStyle(color: Colors.grey[600]),
-                    prefixIcon: Icon(Icons.search, color: Colors.grey[600]),
-                    filled: true,
-                    fillColor: Colors.white,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide.none,
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(vertical: 14),
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.end, // Aligner en bas
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Trouvez votre prochain séjour',
+                    style: TextStyle(
+                        fontSize: 22, // Ajusté
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white),
                   ),
-                ),
-                const SizedBox(height: 10),
-              ],
+                  const SizedBox(height: 6),
+                  Text(
+                    'Découvrez des offres exclusives sur les hôtels et plus encore.', // Texte plus engageant
+                    style: TextStyle(fontSize: 14, color: Colors.white.withOpacity(0.85)), // Style
+                  ),
+                  const SizedBox(height: 18),
+                  TextField(
+                    controller: _searchController,
+                    decoration: InputDecoration(
+                      hintText: 'Ex: Paris, Hôtel de la plage...',
+                      hintStyle: TextStyle(color: Colors.grey.shade500), // Style
+                      prefixIcon: Icon(Icons.search, color: Colors.grey.shade600),
+                      filled: true,
+                      fillColor: Colors.white.withOpacity(0.95), // Légère transparence
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(25), // Plus arrondi
+                        borderSide: BorderSide.none,
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 20), // Ajusté
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
+          actions: [ // Actions pour SliverAppBar
+            if (!_isSynchronizing)
+              IconButton(
+                icon: const Icon(Icons.sync_rounded, color: Colors.white), // Icône différente
+                onPressed: _synchronizeData,
+                tooltip: 'Synchroniser les données',
+              ),
+            IconButton(
+              icon: const Icon(Icons.notifications_none_rounded, color: Colors.white), // Icône différente
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const NotificationPage()),
+                );
+              },
+              tooltip: 'Notifications',
+            ),
+            if (_isAdmin)
+              IconButton(
+                icon: const Icon(Icons.admin_panel_settings_outlined, color: Colors.white), // Icône différente
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const AdminPage()),
+                  );
+                },
+                tooltip: 'Panneau Admin',
+              ),
+          ],
         ),
 
         // Recently Viewed Section
         if (_recentlyViewedHotels.isNotEmpty)
           SliverToBoxAdapter(
             child: _buildRecommendationSection(
-              title: 'Consultés récemment',
+              title: 'Consultés Récemment', // Titre plus clair
               hotels: _recentlyViewedHotels,
-              isLoading: _isLoading, // Pass loading state
+              isLoading: _isLoading,
             ),
           ),
         
@@ -891,41 +920,53 @@ void _showChatbotDialog() {
             child: _buildRecommendationSection(
               title: 'Hôtels les Mieux Notés',
               hotels: _topRatedHotels,
-              isLoading: _isLoading, // Pass loading state
+              isLoading: _isLoading,
             ),
           ),
 
-        // Featured Hotels Section (Original "Featured" or "All Hotels" if search is empty)
         SliverToBoxAdapter(
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
+            padding: const EdgeInsets.fromLTRB(16, 24, 16, 12), // Ajusté
             child: Text(
-              _searchQuery.isEmpty ? 'Hôtels populaires' : 'Résultats de recherche',
-              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black87),
+              _searchQuery.isEmpty ? 'Hôtels Populaires' : 'Résultats de Recherche', // Titre plus clair
+              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.black87), // Style
             ),
           ),
         ),
-        _isLoading && filteredHotels.isEmpty // Show loader if loading and no results yet
-            ? const SliverFillRemaining(child: Center(child: CircularProgressIndicator()))
+        _isLoading && filteredHotels.isEmpty
+            ? SliverFillRemaining(child: Center(child: CircularProgressIndicator(color: Colors.deepPurple.shade300))) // Style
             : filteredHotels.isEmpty
                 ? SliverFillRemaining(
                     child: Center(
                       child: Padding(
-                        padding: const EdgeInsets.all(20.0),
-                        child: Text(
-                          _searchQuery.isEmpty ? 'Aucun hôtel disponible pour le moment.' : 'Aucun hôtel ne correspond à votre recherche.',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(fontSize: 16, color: Colors.grey[700]),
+                        padding: const EdgeInsets.all(32.0), // Amélioration de l'état vide
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.hotel_class_outlined, size: 70, color: Colors.grey.shade400), // Icône
+                            const SizedBox(height: 20),
+                            Text(
+                              _searchQuery.isEmpty ? 'Aucun hôtel à afficher' : 'Aucun résultat trouvé', // Texte plus clair
+                              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w500, color: Colors.black54), // Style
+                              textAlign: TextAlign.center,
+                            ),
+                             if (_searchQuery.isNotEmpty)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 8.0),
+                                child: Text("Essayez un autre terme de recherche.", style: TextStyle(fontSize: 14, color: Colors.grey.shade600)),
+                              ),
+                          ],
                         ),
                       ),
                     ),
                   )
-                : SliverPadding(
+                : SliverPadding( // Utiliser SliverPadding pour la liste principale
                     padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 10.0),
                     sliver: SliverList(
                       delegate: SliverChildBuilderDelegate(
                         (context, index) {
-                          return _buildHotelCard(filteredHotels[index]);
+                          // Utiliser la version de _buildHotelCard de home_page.dart
+                          return _buildHotelCard(filteredHotels[index], isSmall: false); 
                         },
                         childCount: filteredHotels.length,
                       ),
