@@ -3,6 +3,9 @@ import 'dart:async'; // Import Timer
 import 'package:flutter/material.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'hotel_details_page.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'dart:math' show cos, sqrt, asin;
 
 class ExplorePage extends StatefulWidget {
   const ExplorePage({super.key});
@@ -19,6 +22,10 @@ class _ExplorePageState extends State<ExplorePage> {
   bool _isLoading = true;
   bool _isLowToHigh = true;
   bool _isPriceFiltered = false;
+  Position? _currentPosition;
+  bool _isLocating = false;
+  List<Map<String, dynamic>> _sortedHotelsByDistance = [];
+  List<Map<String, dynamic>> _topRatedHotels = [];
 
   // Liste des mots-clés disponibles
   final List<String> _keywords = ['Wifi', 'Piscine', 'Spa', 'Restaurant', 'Parking', 'Gym', 'Vue mer', 'Pet-friendly'];
@@ -38,6 +45,7 @@ class _ExplorePageState extends State<ExplorePage> {
       print("Auto-refreshing hotels...");
       _loadHotels();
     });
+    // _requestLocationPermission(); // Optionnel: demander au démarrage
   }
 
   @override
@@ -45,6 +53,89 @@ class _ExplorePageState extends State<ExplorePage> {
     _searchController.dispose();
     _refreshTimer?.cancel(); // Cancel the timer when the widget is disposed
     super.dispose();
+  }
+
+  Future<void> _requestLocationPermission() async {
+    var status = await Permission.location.status;
+    if (status.isDenied || status.isRestricted || status.isPermanentlyDenied) {
+      if (await Permission.location.request().isGranted) {
+        _getCurrentLocationAndSort();
+      } else {
+        // L'utilisateur n'a pas accordé la permission
+        if(mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Permission de localisation refusée.'))
+          );
+        }
+      }
+    } else if (status.isGranted) {
+      _getCurrentLocationAndSort();
+    }
+  }
+
+  Future<void> _getCurrentLocationAndSort() async {
+    if (!mounted) return;
+    setState(() {
+      _isLocating = true;
+    });
+    try {
+      _currentPosition = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.high);
+      _sortHotelsByDistance();
+    } catch (e) {
+      print("Erreur de localisation: $e");
+      if(mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Impossible d\'obtenir la position: $e'))
+        );
+      }
+    } finally {
+      if (!mounted) return;
+      setState(() {
+        _isLocating = false;
+      });
+    }
+  }
+
+  double _calculateDistance(double lat1, double lon1, double lat2, double lon2) {
+    var p = 0.017453292519943295; // Pi / 180
+    var c = cos;
+    var a = 0.5 -
+        c((lat2 - lat1) * p) / 2 +
+        c(lat1 * p) * c(lat2 * p) * (1 - c((lon2 - lon1) * p)) / 2;
+    return 12742 * asin(sqrt(a)); // 2 * R; R = 6371 km
+  }
+
+  void _sortHotelsByDistance() {
+    if (_currentPosition == null || _hotels.isEmpty) {
+      if(mounted) setState(() => _sortedHotelsByDistance = _getFilteredHotels());
+      return;
+    }
+
+    List<Map<String, dynamic>> tempHotels = List.from(_getFilteredHotels());
+
+    for (var hotel in tempHotels) {
+      final double? hotelLat = hotel['latitude'] is String ? double.tryParse(hotel['latitude']) : hotel['latitude']?.toDouble();
+      final double? hotelLon = hotel['longitude'] is String ? double.tryParse(hotel['longitude']) : hotel['longitude']?.toDouble();
+
+      if (hotelLat != null && hotelLon != null) {
+        hotel['distance'] = _calculateDistance(_currentPosition!.latitude,
+            _currentPosition!.longitude, hotelLat, hotelLon);
+      } else {
+        hotel['distance'] = double.infinity; // Mettre loin si pas de coordonnées
+      }
+    }
+
+    tempHotels.sort((a, b) {
+      final distA = a['distance'] ?? double.infinity;
+      final distB = b['distance'] ?? double.infinity;
+      return distA.compareTo(distB);
+    });
+    if(mounted) {
+      setState(() {
+        _sortedHotelsByDistance = tempHotels;
+      });
+    }
   }
 
   Future<void> _loadHotels() async {
@@ -82,6 +173,8 @@ class _ExplorePageState extends State<ExplorePage> {
             'imageData': value['imageData'],
             'imageUrl': value['imageUrl'],
             'features': features,
+            'latitude': value['latitude'], // Charger la latitude
+            'longitude': value['longitude'], // Charger la longitude
           });
         });
 
@@ -90,7 +183,15 @@ class _ExplorePageState extends State<ExplorePage> {
             _hotels = loadedHotels;
             _cities = uniqueCities.toList()..sort();
             _isLoading = false;
+            _sortHotelsByDistance(); // Trier initialement ou après chargement
           });
+          List<Map<String, dynamic>> sortedByRating = List.from(loadedHotels);
+          sortedByRating.sort((a, b) {
+            double ratingA = double.tryParse(a['rating'].toString()) ?? 0.0;
+            double ratingB = double.tryParse(b['rating'].toString()) ?? 0.0;
+            return ratingB.compareTo(ratingA); // Décroissant
+          });
+          _topRatedHotels = sortedByRating.take(5).toList();
         }
       } else if (mounted) {
          setState(() => _isLoading = false); // Also set isLoading to false if snapshot doesn't exist
@@ -105,6 +206,9 @@ class _ExplorePageState extends State<ExplorePage> {
 
   List<Map<String, dynamic>> _getFilteredHotels() {
     final searchQuery = _searchController.text.toLowerCase();
+    // Utiliser _hotels comme source si _sortedHotelsByDistance n'est pas encore pertinent
+    // ou si on ne veut pas que le filtre de distance soit toujours appliqué avant les autres.
+    // Pour l'instant, on filtre la liste de base _hotels.
     var filteredHotels = _hotels.where((hotel) {
       // Filtrage par ville
       final matchesCity = _selectedCity == null || hotel['location'] == _selectedCity;
@@ -155,6 +259,10 @@ class _ExplorePageState extends State<ExplorePage> {
 
   @override
   Widget build(BuildContext context) {
+    // Utiliser _sortedHotelsByDistance si _currentPosition est défini, sinon _getFilteredHotels()
+    final hotelsToDisplay = _currentPosition != null && _sortedHotelsByDistance.isNotEmpty 
+                           ? _sortedHotelsByDistance 
+                           : _getFilteredHotels();
     return Scaffold(
       body: SafeArea(
         child: Column(
@@ -345,16 +453,31 @@ class _ExplorePageState extends State<ExplorePage> {
               ),
             ),
             const SizedBox(height: 8),
-
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+              child: ElevatedButton.icon(
+                onPressed: _isLocating ? null : _requestLocationPermission,
+                icon: _isLocating 
+                    ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white,))
+                    : const Icon(Icons.my_location),
+                label: const Text('Hôtels les plus proches'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.teal,
+                  foregroundColor: Colors.white,
+                ),
+              ),
+            ),
             // Hotels List
             Expanded(
               child: _isLoading
                   ? const Center(child: CircularProgressIndicator())
-                  : ListView.builder(
+                  : hotelsToDisplay.isEmpty // Modifié ici
+                    ? const Center(child: Text("Aucun hôtel trouvé."))
+                    : ListView.builder(
                       padding: const EdgeInsets.all(16),
-                      itemCount: _getFilteredHotels().length,
+                      itemCount: hotelsToDisplay.length, // Modifié ici
                       itemBuilder: (context, index) {
-                        final hotel = _getFilteredHotels()[index];
+                        final hotel = hotelsToDisplay[index]; // Modifié ici
                         return _buildHotelCard(hotel);
                       },
                     ),
@@ -372,6 +495,7 @@ class _ExplorePageState extends State<ExplorePage> {
     if (hotel['features'] != null) {
       features = hotel['features'] is List ? hotel['features'] : [hotel['features']];
     }
+    final distance = hotel['distance'];
     
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
@@ -484,6 +608,14 @@ class _ExplorePageState extends State<ExplorePage> {
                         ),
                       ),
                     ),
+                  if (distance != null && distance != double.infinity)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4.0),
+                      child: Text(
+                        'Distance: ${distance.toStringAsFixed(1)} km',
+                        style: TextStyle(color: Colors.teal, fontWeight: FontWeight.w500),
+                      ),
+                    ),
                 ],
               ),
             ),
@@ -547,7 +679,10 @@ class _ExplorePageState extends State<ExplorePage> {
   }
 
   Widget _buildResultsCount() {
-    final filteredCount = _getFilteredHotels().length;
+    final hotelsToDisplay = _currentPosition != null && _sortedHotelsByDistance.isNotEmpty 
+                           ? _sortedHotelsByDistance 
+                           : _getFilteredHotels();
+    final filteredCount = hotelsToDisplay.length; // Modifié ici
     final totalCount = _hotels.length;
     
     return Padding(
