@@ -119,7 +119,7 @@ class _ExplorePageState extends State<ExplorePage> {
     var c = cos;
     var a = 0.5 -
         c((lat2 - lat1) * p) / 2 +
-        c(lat1 * p) * c(lat2 * p) * (1 - c((lon2 - lon1) * p)) / 2;
+        c(lat1 * p) * c(lat2 * p) * (1 - c((lon1 - lon1) * p)) / 2;
     return 12742 * asin(sqrt(a)); // 2 * R; R = 6371 km
   }
 
@@ -292,24 +292,29 @@ class _ExplorePageState extends State<ExplorePage> {
         ? _sortedHotelsByDistance
         : _getFilteredHotels();
     return Scaffold(
+      // appBar: AppBar( // Optionnel: si vous voulez un AppBar ici
+      //   title: const Text("Explorer les Hôtels"),
+      //   backgroundColor: Colors.deepPurple,
+      // ),
       body: SafeArea(
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Afficher les filtres actifs
             if (_selectedKeywords.isNotEmpty)
               Container(
                 color: Colors.deepPurple.withOpacity(0.05),
-                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 10.0), // Ajusté
                 child: Row(
                   children: [
-                    const Icon(Icons.filter_list, color: Colors.deepPurple, size: 18),
+                    Icon(Icons.filter_list, color: Colors.deepPurple.shade300, size: 20), // Style
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        'Filtres actifs: ${_selectedKeywords.join(", ")}',
-                        style: const TextStyle(
-                          color: Colors.deepPurple,
-                          fontWeight: FontWeight.bold,
+                        'Filtres: ${_selectedKeywords.join(", ")}', // Style
+                        style: TextStyle(
+                          color: Colors.deepPurple.shade700, // Style
+                          fontWeight: FontWeight.w500, // Style
                         ),
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -318,12 +323,12 @@ class _ExplorePageState extends State<ExplorePage> {
                       onPressed: () {
                         setState(() {
                           _selectedKeywords.clear();
+                          _isDistanceSortActive = false; // Désactiver le tri par distance
                         });
                       },
-                      icon: const Icon(Icons.clear, size: 18),
-                      label: const Text('Effacer'),
+                      icon: Icon(Icons.clear, size: 18, color: Colors.deepPurple.shade300), // Style
+                      label: Text('Effacer', style: TextStyle(color: Colors.deepPurple.shade400)), // Style
                       style: TextButton.styleFrom(
-                        foregroundColor: Colors.deepPurple,
                         padding: const EdgeInsets.symmetric(horizontal: 8),
                       ),
                     ),
@@ -332,146 +337,145 @@ class _ExplorePageState extends State<ExplorePage> {
               ),
             // Search Bar
             Padding(
-              padding: const EdgeInsets.all(16.0),
+              padding: const EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 8.0), // Ajusté
               child: TextField(
                 controller: _searchController,
                 decoration: InputDecoration(
-                  hintText: 'Search hotels, cities...',
-                  prefixIcon: const Icon(Icons.search),
+                  hintText: 'Rechercher un hôtel, une ville...', // Texte plus clair
+                  prefixIcon: Icon(Icons.search, color: Colors.grey.shade600), // Style
                   filled: true,
-                  fillColor: Colors.grey.shade100,
+                  fillColor: Colors.grey.shade200, // Couleur de fond plus douce
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(25), // Plus arrondi
                     borderSide: BorderSide.none,
                   ),
-                  contentPadding: const EdgeInsets.symmetric(vertical: 16),
+                  contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 20), // Ajusté
                 ),
                 onChanged: (_) => setState(() {
-                  _isDistanceSortActive = false; // Désactive le tri par distance
+                  _isDistanceSortActive = false; 
                 }),
               ),
             ),
 
             // Filter row
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0), // Ajusté
               child: Row(
                 children: [
-                  // All button
                   FilterChip(
-                    label: const Text('All'),
-                    selected: _selectedCity == null && !_isDistanceSortActive, // Ajusté
+                    label: const Text('Tous'), // Style
+                    selected: _selectedCity == null && !_isDistanceSortActive,
                     onSelected: (selected) {
                       setState(() {
                         _selectedCity = null;
-                        _isDistanceSortActive = false; // Désactive le tri par distance
+                        _isDistanceSortActive = false; 
                       });
                     },
+                    backgroundColor: Colors.grey.shade200, // Style
                     selectedColor: Colors.deepPurple.withOpacity(0.2),
                     checkmarkColor: Colors.deepPurple,
+                    labelStyle: TextStyle(color: _selectedCity == null && !_isDistanceSortActive ? Colors.deepPurple : Colors.black87), // Style
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)), // Style
                   ),
                   const SizedBox(width: 8),
-                  // Price filter button
                   FilterChip(
                     label: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Text('Price'),
+                        Text('Prix', style: TextStyle(color: _isPriceFiltered && !_isDistanceSortActive ? Colors.deepPurple : Colors.black87)), // Style
                         const SizedBox(width: 4),
                         Icon(
-                          _isPriceFiltered 
-                            ? (_isLowToHigh ? Icons.arrow_upward : Icons.arrow_downward)
-                            : Icons.monetization_on,
-                          size: 16,
+                          _isPriceFiltered
+                              ? (_isLowToHigh ? Icons.arrow_upward : Icons.arrow_downward)
+                              : Icons.monetization_on_outlined, // Icône différente
+                          size: 18, // Style
+                          color: _isPriceFiltered && !_isDistanceSortActive ? Colors.deepPurple : Colors.grey.shade700, // Style
                         ),
                       ],
                     ),
-                    selected: _isPriceFiltered && !_isDistanceSortActive, // Ajusté
+                    selected: _isPriceFiltered && !_isDistanceSortActive,
                     onSelected: (selected) {
                       setState(() {
-                        _isDistanceSortActive = false; // Désactive le tri par distance
+                        _isDistanceSortActive = false; 
                         if (_isPriceFiltered && !selected) {
-                          // Deselecting the filter
                           _isPriceFiltered = false;
                         } else if (!_isPriceFiltered && selected) {
-                          // Selecting the filter for the first time
                           _isPriceFiltered = true;
-                          _isLowToHigh = true;
+                          _isLowToHigh = true; 
                         } else {
-                          // Toggle sort direction when clicking while selected
                           _isLowToHigh = !_isLowToHigh;
                         }
                       });
                     },
+                    backgroundColor: Colors.grey.shade200, // Style
                     selectedColor: Colors.deepPurple.withOpacity(0.2),
                     checkmarkColor: Colors.deepPurple,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)), // Style
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 8),
             // Cities list
-            SizedBox(
-              height: 50,
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                itemCount: _cities.length,
-                itemBuilder: (context, index) {
-                  final city = _cities[index];
-                  final isSelected = city == _selectedCity && !_isDistanceSortActive; // Ajusté
-                  
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: FilterChip(
-                      label: Text(city),
-                      selected: isSelected,
-                      onSelected: (selected) {
-                        setState(() {
-                          _selectedCity = selected ? city : null;
-                          _isDistanceSortActive = false; // Désactive le tri par distance
-                        });
-                      },
-                      selectedColor: Colors.deepPurple.withOpacity(0.2),
-                      checkmarkColor: Colors.deepPurple,
-                    ),
-                  );
-                },
+            if (_cities.isNotEmpty)
+              SizedBox(
+                height: 45, // Ajusté
+                child: ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4), // Ajusté
+                  itemCount: _cities.length,
+                  itemBuilder: (context, index) {
+                    final city = _cities[index];
+                    final isSelected = city == _selectedCity && !_isDistanceSortActive;
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: FilterChip(
+                        label: Text(city, style: TextStyle(color: isSelected ? Colors.deepPurple : Colors.black87)), // Style
+                        selected: isSelected,
+                        onSelected: (selected) {
+                          setState(() {
+                            _selectedCity = selected ? city : null;
+                            _isDistanceSortActive = false; 
+                          });
+                        },
+                        backgroundColor: Colors.grey.shade200, // Style
+                        selectedColor: Colors.deepPurple.withOpacity(0.2),
+                        checkmarkColor: Colors.deepPurple,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)), // Style
+                      ),
+                    );
+                  },
+                ),
               ),
-            ),
-            const SizedBox(height: 8),
-            // Keywords filter title
+            
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              padding: const EdgeInsets.fromLTRB(16.0, 10.0, 16.0, 4.0), // Ajusté
               child: Text(
-                'Caractéristiques',
+                'Caractéristiques populaires', // Titre plus engageant
                 style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: Colors.grey[700],
-                  fontSize: 16, // Slightly larger for better visibility
+                  fontWeight: FontWeight.w600, // Style
+                  color: Colors.grey.shade800, // Style
+                  fontSize: 16,
                 ),
               ),
             ),
-            const SizedBox(height: 8),
             // Keywords filter chips
             SizedBox(
-              height: 50,
+              height: 45, // Ajusté
               child: ListView.builder(
                 scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 16),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4), // Ajusté
                 itemCount: _keywords.length,
                 itemBuilder: (context, index) {
                   final keyword = _keywords[index];
-                  final isSelected = _selectedKeywords.contains(keyword) && !_isDistanceSortActive; // Ajusté
-                  
+                  final isSelected = _selectedKeywords.contains(keyword) && !_isDistanceSortActive;
                   return Padding(
                     padding: const EdgeInsets.only(right: 8),
                     child: FilterChip(
-                      label: Text(keyword),
+                      label: Text(keyword, style: TextStyle(color: isSelected ? Colors.deepPurple : Colors.black87)), // Style
                       selected: isSelected,
                       onSelected: (selected) {
                         setState(() {
-                          _isDistanceSortActive = false; // Désactive le tri par distance
+                          _isDistanceSortActive = false; 
                           if (selected) {
                             _selectedKeywords.add(keyword);
                           } else {
@@ -479,44 +483,59 @@ class _ExplorePageState extends State<ExplorePage> {
                           }
                         });
                       },
+                      backgroundColor: Colors.grey.shade200, // Style
                       selectedColor: Colors.deepPurple.withOpacity(0.2),
                       checkmarkColor: Colors.deepPurple,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)), // Style
                     ),
                   );
                 },
               ),
             ),
-            const SizedBox(height: 8),
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0), // Ajusté
               child: ElevatedButton.icon(
                 onPressed: _isLocating ? null : _requestLocationPermission,
-                icon: _isLocating 
-                    ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white,))
-                    : const Icon(Icons.my_location),
+                icon: _isLocating
+                    ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    : const Icon(Icons.my_location, size: 20), // Style
                 label: const Text('Hôtels les plus proches'),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.teal,
+                  backgroundColor: Colors.teal.shade400, // Couleur ajustée
                   foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12), // Style
+                  textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500), // Style
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)), // Style
                 ),
               ),
             ),
             // Hotels List
             Expanded(
               child: _isLoading
-                  ? const Center(child: CircularProgressIndicator())
-                  : hotelsToDisplay.isEmpty // Modifié ici
-                    ? const Center(child: Text("Aucun hôtel trouvé."))
-                    : ListView.builder(
-                      padding: const EdgeInsets.all(16),
-                      itemCount: hotelsToDisplay.length, // Modifié ici
-                      itemBuilder: (context, index) {
-                        final hotel = hotelsToDisplay[index]; // Modifié ici
-                        return _buildHotelCard(hotel);
-                      },
-                    ),
+                  ? const Center(child: CircularProgressIndicator(color: Colors.deepPurple)) // Style
+                  : hotelsToDisplay.isEmpty
+                      ? Center(
+                          child: Column( // Amélioration de l'état vide
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.search_off, size: 60, color: Colors.grey.shade400),
+                              const SizedBox(height: 16),
+                              const Text("Aucun hôtel ne correspond.", style: TextStyle(fontSize: 18, color: Colors.grey)),
+                              const SizedBox(height: 8),
+                              Text("Essayez d'ajuster vos filtres.", style: TextStyle(fontSize: 14, color: Colors.grey.shade600)),
+                            ],
+                          )
+                        )
+                      : ListView.builder(
+                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16), // Ajusté
+                          itemCount: hotelsToDisplay.length,
+                          itemBuilder: (context, index) {
+                            final hotel = hotelsToDisplay[index];
+                            return _buildHotelCard(hotel);
+                          },
+                        ),
             ),
-            _buildResultsCount(),
+            if (!_isLoading && hotelsToDisplay.isNotEmpty) _buildResultsCount(), // Afficher seulement si non vide et non en chargement
           ],
         ),
       ),
@@ -524,27 +543,28 @@ class _ExplorePageState extends State<ExplorePage> {
   }
 
   Widget _buildHotelCard(Map<String, dynamic> hotel) {
-    // Récupérer les fonctionnalités
     List<dynamic> features = [];
     if (hotel['features'] != null) {
       features = hotel['features'] is List ? hotel['features'] : [hotel['features']];
     }
     final distance = hotel['distance'];
-    
+
     return Card(
-      margin: const EdgeInsets.only(bottom: 16),
+      margin: const EdgeInsets.only(bottom: 20), // Plus d'espace
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(15), // Plus arrondi
       ),
-      elevation: 2,
+      elevation: 4, // Ombre plus prononcée
+      shadowColor: Colors.deepPurple.withOpacity(0.1), // Ombre colorée
       child: InkWell(
+        borderRadius: BorderRadius.circular(15), // Doit correspondre à la Card
         onTap: () {
           Navigator.push(
             context,
             MaterialPageRoute(
               builder: (context) => HotelDetailsPage(
-                hotelData: hotel, // MODIFIED: Pass hotel as hotelData
-                hotelId: hotel['id'] as String, // MODIFIED: Pass hotel id as hotelId
+                hotelData: hotel,
+                hotelId: hotel['id'] as String,
               ),
             ),
           );
@@ -553,101 +573,101 @@ class _ExplorePageState extends State<ExplorePage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             ClipRRect(
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(15)), // Correspondre
               child: _buildHotelImage(hotel['imageData'], hotel['imageUrl']),
             ),
             Padding(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(16), // Plus de padding
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     hotel['name'],
                     style: const TextStyle(
-                      fontSize: 18,
+                      fontSize: 20, // Plus grand
                       fontWeight: FontWeight.bold,
+                      color: Colors.black87, // Couleur plus foncée
                     ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 6),
                   Row(
                     children: [
-                      Icon(Icons.location_on, size: 16, color: Colors.grey[600]),
-                      const SizedBox(width: 4),
+                      Icon(Icons.location_on_outlined, size: 16, color: Colors.grey.shade700), // Icône différente
+                      const SizedBox(width: 6),
                       Expanded(
                         child: Text(
                           hotel['location'],
-                          style: TextStyle(color: Colors.grey[600]),
+                          style: TextStyle(color: Colors.grey.shade700, fontSize: 14), // Style
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 8),
                   Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      const Icon(Icons.star, size: 16, color: Colors.amber),
+                      Icon(Icons.star_rounded, size: 20, color: Colors.amber.shade600), // Icône différente et plus grande
                       const SizedBox(width: 4),
                       Text(
-                        '${hotel['rating']} ★',
-                        style: TextStyle(color: Colors.grey[600]),
+                        '${hotel['rating']}', // Juste le nombre
+                        style: TextStyle(color: Colors.grey.shade800, fontSize: 15, fontWeight: FontWeight.bold), // Style
                       ),
+                      Text(' (${(int.tryParse(hotel['rating'].toString().split('.').last) ?? 0) * 10}+ avis)', style: TextStyle(color: Colors.grey.shade600, fontSize: 12)), // Exemple d'avis
                       const Spacer(),
                       Text(
-                        '\$${hotel['price']}/night',
+                        '\$${hotel['price']}', // Prix plus simple
                         style: const TextStyle(
-                          fontSize: 16,
+                          fontSize: 20, // Plus grand
                           fontWeight: FontWeight.bold,
                           color: Colors.deepPurple,
                         ),
                       ),
+                      Text('/nuit', style: TextStyle(fontSize: 12, color: Colors.grey.shade700)), // Style
                     ],
                   ),
-                  
-                  // Afficher les fonctionnalités disponibles si présentes
-                  if (features.isNotEmpty)
+                  if (distance != null && distance != double.infinity)
                     Padding(
                       padding: const EdgeInsets.only(top: 8.0),
+                      child: Row(
+                        children: [
+                          Icon(Icons.directions_walk, size: 16, color: Colors.teal.shade400), // Icône
+                          const SizedBox(width: 4),
+                          Text(
+                            '${distance.toStringAsFixed(1)} km',
+                            style: TextStyle(color: Colors.teal.shade600, fontWeight: FontWeight.w500, fontSize: 13), // Style
+                          ),
+                        ],
+                      ),
+                    ),
+                  if (features.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 10.0),
                       child: Wrap(
-                        spacing: 6.0,
-                        runSpacing: 6.0,
+                        spacing: 8.0, // Style
+                        runSpacing: 6.0, // Style
                         children: features.take(3).map<Widget>((feature) {
-                          return Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 2.0),
-                            decoration: BoxDecoration(
-                              color: Colors.deepPurple.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Text(
-                              feature.toString(),
-                              style: const TextStyle(
-                                fontSize: 12,
-                                color: Colors.deepPurple,
-                              ),
-                            ),
+                          return Chip(
+                            avatar: Icon(Icons.check_circle_outline, size: 16, color: Colors.deepPurple.shade300), // Icône
+                            label: Text(feature.toString(), style: TextStyle(fontSize: 12, color: Colors.deepPurple.shade700)), // Style
+                            backgroundColor: Colors.deepPurple.withOpacity(0.08), // Style
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2), // Style
+                            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                           );
                         }).toList(),
                       ),
                     ),
-                  
-                  // Afficher "+X more" si plus de 3 fonctionnalités
                   if (features.length > 3)
                     Padding(
-                      padding: const EdgeInsets.only(top: 4.0),
+                      padding: const EdgeInsets.only(top: 6.0),
                       child: Text(
-                        '+${features.length - 3} autres',
+                        '+${features.length - 3} autres caractéristiques', // Texte plus clair
                         style: TextStyle(
                           fontSize: 12,
-                          color: Colors.grey[600],
-                          fontStyle: FontStyle.italic,
+                          color: Colors.grey.shade600,
                         ),
-                      ),
-                    ),
-                  if (distance != null && distance != double.infinity)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 4.0),
-                      child: Text(
-                        'Distance: ${distance.toStringAsFixed(1)} km',
-                        style: TextStyle(color: Colors.teal, fontWeight: FontWeight.w500),
                       ),
                     ),
                 ],
@@ -705,10 +725,13 @@ class _ExplorePageState extends State<ExplorePage> {
 
   Widget _buildPlaceholderImage() {
     return Container(
-      height: 150,
+      height: 180, // Hauteur cohérente pour la carte
       width: double.infinity,
-      color: Colors.grey[200],
-      child: const Icon(Icons.hotel, size: 50, color: Colors.grey),
+      decoration: BoxDecoration( // Style
+        color: Colors.grey.shade200,
+        // borderRadius: const BorderRadius.vertical(top: Radius.circular(15)), // Si vous voulez arrondir seulement le placeholder
+      ),
+      child: Icon(Icons.hotel_rounded, size: 60, color: Colors.grey.shade400), // Icône différente
     );
   }
 
@@ -720,15 +743,16 @@ class _ExplorePageState extends State<ExplorePage> {
     final totalCount = _hotels.length;
     
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 12), // Ajusté
       child: Text(
-        filteredCount == totalCount 
-          ? '$totalCount hôtels trouvés'
-          : '$filteredCount sur $totalCount hôtels correspondent',
+        filteredCount == totalCount
+            ? '$totalCount hôtels disponibles' // Texte plus clair
+            : '$filteredCount sur $totalCount hôtels affichés', // Texte plus clair
         style: TextStyle(
-          color: Colors.grey[700],
-          fontStyle: FontStyle.italic,
+          color: Colors.grey.shade700,
+          fontSize: 13, // Style
         ),
+        textAlign: TextAlign.center, // Style
       ),
     );
   }
