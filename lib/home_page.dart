@@ -816,7 +816,7 @@ void _showChatbotDialog() {
     return CustomScrollView(
       slivers: [
         SliverAppBar( // Utilisation de SliverAppBar pour un effet de défilement
-          expandedHeight: 195.0, // MODIFIÉ ICI (était 240.0) - Ajustez au besoin
+          expandedHeight: 240.0, // Hauteur de l'en-tête étendu
           floating: false,
           pinned: true, // L'AppBar reste visible en haut
           snap: false,
@@ -838,35 +838,31 @@ void _showChatbotDialog() {
                 ),
               ),
               child: Column(
-                mainAxisAlignment: MainAxisAlignment.end, 
+                mainAxisAlignment: MainAxisAlignment.end, // Aligner en bas
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
                     'Trouvez votre prochain séjour',
                     style: TextStyle(
-                        fontSize: 22, 
+                        fontSize: 22, // Ajusté
                         fontWeight: FontWeight.bold,
                         color: Colors.white),
                   ),
-                  const SizedBox(height: 6),
-                  Text(
-                    'Découvrez des offres exclusives sur les hôtels et plus encore.', 
-                    style: TextStyle(fontSize: 14, color: Colors.white.withOpacity(0.85)), 
-                  ),
+                  
                   const SizedBox(height: 18),
                   TextField(
                     controller: _searchController,
                     decoration: InputDecoration(
                       hintText: 'Ex: Paris, Hôtel de la plage...',
-                      hintStyle: TextStyle(color: Colors.grey.shade500), 
+                      hintStyle: TextStyle(color: Colors.grey.shade500), // Style
                       prefixIcon: Icon(Icons.search, color: Colors.grey.shade600),
                       filled: true,
-                      fillColor: Colors.white.withOpacity(0.95), 
+                      fillColor: Colors.white.withOpacity(0.95), // Légère transparence
                       border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(25), 
+                        borderRadius: BorderRadius.circular(25), // Plus arrondi
                         borderSide: BorderSide.none,
                       ),
-                      contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 20), 
+                      contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 20), // Ajusté
                     ),
                   ),
                 ],
