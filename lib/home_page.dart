@@ -25,92 +25,205 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  String username = 'Guest';
-  int _selectedIndex = 0;
-  String? _profileImageUrl;
-  String? _profileImageData;
+  String username = 'Guest'; // Keep existing
+  int _selectedIndex = 0; // Keep existing
+  String? _profileImageUrl; // Keep existing
+  String? _profileImageData; // Keep existing
+  bool _isAdmin = false; // Keep existing
+  
+  // Consolidated hotel related state
   List<Map<String, dynamic>> _hotels = [];
-  bool _isAdmin = false;
-  bool _isLoadingHotels = false;
-  bool _isSynchronizing = false;
+  List<Map<String, dynamic>> _topRatedHotels = [];
+  List<Map<String, dynamic>> _recentlyViewedHotels = [];
+  bool _isLoading = true; // Consolidated loading state for hotels
   
-  // Firebase listeners for real-time updates
-  StreamSubscription<DatabaseEvent>? _hotelsListener;
-  StreamSubscription<DatabaseEvent>? _userDataListener;
-  
-  // Auto-sync timer
-  Timer? _syncTimer;
+  User? _currentUser; // Keep existing
+  String _searchQuery = ''; // Keep existing
+  final TextEditingController _searchController = TextEditingController(); // Keep existing
+  StreamSubscription<DatabaseEvent>? _hotelsSubscription; // Consolidated subscription
+  StreamSubscription<DatabaseEvent>? _userDataListener; // Keep if used for user data updates
 
-  List<Map<String, dynamic>> _featuredHotels = [];
-  List<Map<String, dynamic>> _topRatedHotels = []; // For Top Rated
-  List<Map<String, dynamic>> _recentlyViewedHotels = []; // For Recently Viewed
-  bool _isLoading = true;
-  User? _currentUser;
-  String _searchQuery = '';
-  final TextEditingController _searchController = TextEditingController();
-  StreamSubscription<DatabaseEvent>? _hotelsSubscription;
+  // For sync functionality
+  bool _isSynchronizing = false; // Keep existing
+  Timer? _syncTimer; // Keep existing
 
-  static const String _recentlyViewedKey = 'recently_viewed_hotels';
-  static const int _maxRecentlyViewed = 5;
+  static const String _recentlyViewedKey = 'recently_viewed_hotels'; // Keep existing
+  static const int _maxRecentlyViewed = 5; // Keep existing
 
   @override
   void initState() {
     super.initState();
-    _initialLoad();
-    _setupSynchronization();
-    _checkAdminStatus();
-    _setupHotelsListener();
-    _searchController.addListener(() {
-      setState(() {
-        _searchQuery = _searchController.text;
-      });
-    });
-  }
-  
-  @override
-  void dispose() {
-    // Clean up listeners when widget is disposed
-    _hotelsListener?.cancel();
-    _userDataListener?.cancel();
-    _syncTimer?.cancel();
-    _searchController.dispose();
-    _hotelsSubscription?.cancel();
-    super.dispose();
-  }
-  
-  // Initial data loading
-  Future<void> _initialLoad() async {
-    await _loadUserData();
-    await _loadHotels();
-    await _checkAdminStatus();
-  }
-
-  // Setup synchronization mechanisms
-  void _setupSynchronization() {
-    // Set up Firebase realtime database listeners
-    _setupHotelsListener();
-    _setupUserDataListener();
+    _currentUser = FirebaseAuth.instance.currentUser;
     
-    // Setup periodic sync timer (every 3 minutes)
+    _loadInitialData(); // New method to orchestrate initial loading
+
+    _searchController.addListener(() {
+      if (mounted) {
+        setState(() {
+          _searchQuery = _searchController.text;
+        });
+      }
+    });
+
+    // Setup periodic sync timer
     _syncTimer = Timer.periodic(const Duration(minutes: 3), (timer) {
       _synchronizeData();
     });
   }
+
+  Future<void> _loadInitialData() async {
+    await _loadUserData(); // Load user data first
+    await _checkAdminStatus();
+    await _setupConsolidatedHotelsListener(); // Setup the main hotels listener
+    // _loadRecentlyViewedHotels() is called within _setupConsolidatedHotelsListener after hotels are loaded
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    _hotelsSubscription?.cancel();
+    _userDataListener?.cancel(); // Ensure this is managed if you have a _userDataListener
+    _syncTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _loadUserData() async {
+    // ... Keep your existing _loadUserData logic ...
+    // Ensure it sets username, _profileImageUrl, _profileImageData
+    // Example structure:
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      final userRef = FirebaseDatabase.instance.ref().child('users/${user.uid}');
+      // If using a listener for user data:
+      _userDataListener?.cancel();
+      _userDataListener = userRef.onValue.listen((event) {
+        if (!mounted) return;
+        if (event.snapshot.exists) {
+          final userData = event.snapshot.value as Map<dynamic, dynamic>;
+          setState(() {
+            username = userData['username'] ?? user.displayName ?? 'User';
+            _profileImageData = userData['profileImageBase64'] as String?;
+            _profileImageUrl = userData['profileImageUrl'] as String?;
+            // _isAdmin = userData['isAdmin'] == true; // Can also be updated here
+          });
+        }
+      }, onError: (error) {
+        print('Error in user data listener: $error');
+      });
+      // Or if fetching once:
+      // final snapshot = await userRef.get();
+      // if (snapshot.exists) { ... setState ... }
+    } else {
+       setState(() { // Handle guest user
+         username = 'Guest';
+         _profileImageData = null;
+         _profileImageUrl = null;
+       });
+    }
+  }
+
+  Future<void> _checkAdminStatus() async {
+    // ... Keep your existing _checkAdminStatus logic ...
+    // Ensure it sets _isAdmin
+    _currentUser = FirebaseAuth.instance.currentUser;
+    if (_currentUser != null) {
+      final snapshot = await FirebaseDatabase.instance
+          .ref('users/${_currentUser!.uid}/isAdmin') // More direct path if 'isAdmin' is top-level
+          .get();
+      if (mounted) {
+        setState(() {
+          _isAdmin = snapshot.exists && snapshot.value == true;
+        });
+      }
+    } else {
+      if (mounted) {
+        setState(() {
+          _isAdmin = false;
+        });
+      }
+    }
+  }
+
+  // Renamed and consolidated hotels listener setup
+  Future<void> _setupConsolidatedHotelsListener() async {
+    if (!mounted) return;
+    setState(() {
+      _isLoading = true;
+    });
+
+    _hotelsSubscription?.cancel(); 
+    _hotelsSubscription =
+        FirebaseDatabase.instance.ref('hotels').onValue.listen((event) async {
+      if (!mounted) return;
+      if (event.snapshot.exists) {
+        final data = event.snapshot.value as Map<dynamic, dynamic>;
+        final loadedHotels = <Map<String, dynamic>>[];
+        data.forEach((key, value) {
+          final hotelData = Map<String, dynamic>.from(value as Map);
+          hotelData['id'] = key;
+          // Ensure features is a list of strings
+          if (hotelData['features'] != null && hotelData['features'] is List) {
+            hotelData['features'] = List<String>.from(hotelData['features'].map((item) => item.toString()));
+          } else if (hotelData['features'] != null) {
+             hotelData['features'] = [hotelData['features'].toString()];
+          } else {
+            hotelData['features'] = <String>[];
+          }
+          // Ensure all necessary fields for cards are present
+          hotelData['name'] = hotelData['name'] ?? 'Unknown Hotel';
+          hotelData['location'] = hotelData['location'] ?? 'Unknown Location';
+          hotelData['price'] = hotelData['price']?.toString() ?? 'N/A';
+          hotelData['rating'] = hotelData['rating']?.toString() ?? 'N/A';
+          // Add other fields like 'imageData', 'imageUrl' if needed by the card
+          hotelData['imageData'] = hotelData['imageData'] as String?;
+          hotelData['imageUrl'] = hotelData['imageUrl'] as String?;
+
+          loadedHotels.add(hotelData);
+        });
+
+        if (mounted) {
+          setState(() {
+            _hotels = loadedHotels;
+            _topRatedHotels = _getTopRatedHotels(loadedHotels); 
+            _isLoading = false;
+          });
+          await _loadRecentlyViewedHotels(); 
+        }
+      } else {
+        if (mounted) {
+          setState(() {
+            _hotels = [];
+            _topRatedHotels = [];
+            _isLoading = false;
+          });
+        }
+      }
+    }, onError: (error) {
+      if (mounted) {
+        print("Error loading hotels: $error");
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    });
+  }
   
-  // Perform manual sync
   Future<void> _synchronizeData() async {
     if (_isSynchronizing) return;
+    if (!mounted) return;
     
     setState(() {
       _isSynchronizing = true;
+      _isLoading = true; 
     });
     
     try {
-      await _loadHotels();
-      await _loadUserData();
+      // For a manual sync, explicitly re-fetch data or re-init listener
+      // Re-initializing the listener will fetch the latest data.
+      await _setupConsolidatedHotelsListener(); // This will set _isLoading = false when done
+      await _loadUserData(); 
       await _checkAdminStatus();
       
-      // Show sync success message
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -135,229 +248,100 @@ class _HomePageState extends State<HomePage> {
       if (mounted) {
         setState(() {
           _isSynchronizing = false;
+          // _isLoading should be handled by _setupConsolidatedHotelsListener
         });
       }
     }
   }
-  
-  // Setup hotels realtime listener
-  void _setupHotelsListener() {
-    final hotelsRef = FirebaseDatabase.instance.ref('hotels');
-    _hotelsListener = hotelsRef.onValue.listen((event) {
-      if (!mounted) return;
-      
-      if (event.snapshot.exists) {
-        final hotelsData = event.snapshot.value as Map<dynamic, dynamic>;
-        final loadedHotels = <Map<String, dynamic>>[];
 
-        hotelsData.forEach((key, value) {
-          // Récupérer les fonctionnalités
-          List<dynamic> features = [];
-          if (value['features'] != null) {
-            features = value['features'] is List ? value['features'] : [value['features']];
-          }
-          
-          loadedHotels.add({
-            'id': key,
-            'name': value['name'] ?? 'Unknown Hotel',
-            'location': value['location'] ?? 'Unknown Location',
-            'price': value['price'] ?? '0',
-            'rating': value['rating'] ?? '0.0',
-            'description': value['description'] ?? '',
-            'phone': value['phone'] ?? '',
-            'features': features,
-            'imageData': value['imageData'],
-            'imageUrl': value['imageUrl'],
-          });
-        });
+  // ... Keep _getTopRatedHotels, _loadRecentlyViewedHotels, _addRecentlyViewedHotel as they are ...
+  // ... Make sure they use the consolidated _hotels list and _isLoading flag ...
 
-        if (mounted) {
-          setState(() {
-            _hotels = loadedHotels;
-            _isLoadingHotels = false;
-          });
-        }
-      }
-    }, onError: (error) {
-      print('Error in hotels listener: $error');
+  List<Map<String, dynamic>> _getTopRatedHotels(List<Map<String, dynamic>> hotels) {
+    List<Map<String, dynamic>> sortedHotels = List.from(hotels);
+    sortedHotels.sort((a, b) {
+      double ratingA = double.tryParse(a['rating']?.toString() ?? '0.0') ?? 0.0;
+      double ratingB = double.tryParse(b['rating']?.toString() ?? '0.0') ?? 0.0;
+      return ratingB.compareTo(ratingA); // Sort descending
     });
-  }
-  
-  // Setup user data realtime listener
-  void _setupUserDataListener() {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user != null) {
-      final userRef = FirebaseDatabase.instance.ref().child('users/${user.uid}');
-      _userDataListener = userRef.onValue.listen((event) {
-        if (!mounted) return;
-        
-        if (event.snapshot.exists) {
-          final userData = event.snapshot.value as Map<dynamic, dynamic>;
-          
-          if (mounted) {
-            setState(() {
-              username = userData['username'] ?? user.displayName ?? 'User';
-              
-              if (userData['profileImageBase64'] != null && 
-                  userData['profileImageBase64'].toString().isNotEmpty) {
-                _profileImageData = userData['profileImageBase64'];
-              }
-              if (userData['profileImageUrl'] != null && 
-                  userData['profileImageUrl'].toString().isNotEmpty) {
-                _profileImageUrl = userData['profileImageUrl'];
-              }
-              
-              _isAdmin = userData['isAdmin'] == true;
-            });
-          }
-        }
-      }, onError: (error) {
-        print('Error in user data listener: $error');
-      });
-    }
+    return sortedHotels.take(5).toList(); 
   }
 
-  // Add these new methods
-  Future<void> _checkAdminStatus() async {
-    try {
-      final user = FirebaseAuth.instance.currentUser;
-      if (user != null) {
-        final userSnapshot = await FirebaseDatabase.instance
-            .ref()
-            .child('users/${user.uid}')
-            .get();
-        
-        if (userSnapshot.exists) {
-          final userData = userSnapshot.value as Map<dynamic, dynamic>?;
-          if (userData != null && userData['isAdmin'] == true) {
-            setState(() {
-              _isAdmin = true;
-            });
-          }
-        }
-      }
-    } catch (e) {
-      print('Error checking admin status: $e');
-    }
-  }
-
-  // Dans la méthode _loadHotels(), ajoutez le chargement des fonctionnalités
-  Future<void> _loadHotels() async {
-    setState(() {
-      _isLoadingHotels = true;
-    });
-    
-    try {
-      final hotelsSnapshot = await FirebaseDatabase.instance.ref('hotels').get();
-      
-      if (hotelsSnapshot.exists) {
-        final hotelsData = hotelsSnapshot.value as Map<dynamic, dynamic>;
-        final loadedHotels = <Map<String, dynamic>>[];
-
-        hotelsData.forEach((key, value) {
-          // Récupérer les fonctionnalités
-          List<dynamic> features = [];
-          if (value['features'] != null) {
-            features = value['features'] is List ? value['features'] : [value['features']];
-          }
-          
-          loadedHotels.add({
-            'id': key,
-            'name': value['name'] ?? 'Unknown Hotel',
-            'location': value['location'] ?? 'Unknown Location',
-            'price': value['price'] ?? '0',
-            'rating': value['rating'] ?? '0.0',
-            'description': value['description'] ?? '',
-            'phone': value['phone'] ?? '',
-            'features': features,
-            // Gérer les deux formats d'image possibles
-            'imageData': value['imageData'],
-            'imageUrl': value['imageUrl'],
-          });
-        });
-
-        setState(() {
-          _hotels = loadedHotels;
-        });
-      }
-    } catch (e) {
-      print('Error loading hotels: $e');
-    } finally {
-      setState(() {
-        _isLoadingHotels = false;
-      });
-    }
-  }
-
-  Future<void> _loadUserData() async {
+  Future<void> _loadRecentlyViewedHotels() async {
+    // ... (This method seems fine, ensure it uses _hotels for lookup)
+    if (!mounted) return;
     final prefs = await SharedPreferences.getInstance();
-    final user = FirebaseAuth.instance.currentUser;
+    final List<String>? hotelIds = prefs.getStringList(_recentlyViewedKey);
 
-    try {
-      if (user != null) {
-        final userSnapshot = await FirebaseDatabase.instance
-            .ref()
-            .child('users/${user.uid}')
-            .get();
-
-        if (userSnapshot.exists) {
-          final userData = userSnapshot.value as Map<dynamic, dynamic>;
-          
-          setState(() {
-            username = userData['username'] ?? user.displayName ?? 'User';
-            // Récupérer l'URL ou les données base64 de l'image
-            if (userData['profileImageBase64'] != null && 
-                userData['profileImageBase64'].toString().isNotEmpty) {
-              _profileImageData = userData['profileImageBase64'];
-            }
-            if (userData['profileImageUrl'] != null && 
-                userData['profileImageUrl'].toString().isNotEmpty) {
-              _profileImageUrl = userData['profileImageUrl'];
-            }
-          });
+    if (hotelIds != null && _hotels.isNotEmpty) {
+      final loadedRecent = <Map<String, dynamic>>[];
+      for (String id in hotelIds) {
+        try {
+          // Make sure _hotels is populated before this is called effectively
+          final hotel = _hotels.firstWhere((h) => h['id'] == id);
+          loadedRecent.add(hotel);
+        } catch (e) {
+          print("Recently viewed hotel with ID $id not found in current _hotels list.");
         }
       }
-    } catch (e) {
-      print('Error loading user data: $e');
+      if (mounted) {
+        setState(() {
+          _recentlyViewedHotels = loadedRecent;
+        });
+      }
+    } else if (mounted) {
+       setState(() {
+         _recentlyViewedHotels = []; // Clear if no IDs or no hotels
+       });
     }
   }
 
-  void _onItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
+  Future<void> _addRecentlyViewedHotel(Map<String, dynamic> hotel) async {
+    // ... (This method seems fine)
+    if (!mounted || hotel['id'] == null) return;
+    final prefs = await SharedPreferences.getInstance();
+    
+    List<Map<String, dynamic>> updatedRecent = List.from(_recentlyViewedHotels);
+    updatedRecent.removeWhere((h) => h['id'] == hotel['id']);
+    updatedRecent.insert(0, hotel);
+
+    if (updatedRecent.length > _maxRecentlyViewed) {
+      updatedRecent = updatedRecent.sublist(0, _maxRecentlyViewed);
+    }
+
+    final List<String> hotelIdsToSave = updatedRecent.map((h) => h['id'] as String).toList();
+    await prefs.setStringList(_recentlyViewedKey, hotelIdsToSave);
+
+    if (mounted) {
+      setState(() {
+        _recentlyViewedHotels = updatedRecent;
+      });
+    }
   }
+
 
   @override
   Widget build(BuildContext context) {
+    final List<Widget> _pages = [
+      _buildHomePageContent(), // Use the consolidated home page builder
+      const ExplorePage(),
+      const BookingsPage(),
+      const ProfilePage(),
+    ];
+
     return Scaffold(
+      // AppBar is now primarily managed within _buildHomePageContent's CustomScrollView (SliverAppBar)
+      // For other tabs, you might need a different AppBar strategy if they don't have their own.
       body: IndexedStack(
         index: _selectedIndex,
-        children: [
-          _buildHomePage(),
-          const ExplorePage(),
-          const BookingsPage(), // Remplacer le placeholder
-          const ProfilePage(),
-        ],
+        children: _pages,
       ),
       bottomNavigationBar: BottomNavigationBar(
         items: const <BottomNavigationBarItem>[
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home),
-            label: 'Home',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.search),
-            label: 'Explore',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.bookmark),
-            label: 'Bookings',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person),
-            label: 'Profile',
-          ),
+          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
+          BottomNavigationBarItem(icon: Icon(Icons.search), label: 'Explore'),
+          BottomNavigationBarItem(icon: Icon(Icons.bookmark), label: 'Bookings'),
+          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
         ],
         currentIndex: _selectedIndex,
         selectedItemColor: Colors.deepPurple,
@@ -368,167 +352,13 @@ class _HomePageState extends State<HomePage> {
       drawer: _selectedIndex == 0 ? _buildDrawer() : null,
     );
   }
-
-  Widget _buildHomePage() {
-    return RefreshIndicator(
-      onRefresh: _synchronizeData,
-      child: SafeArea(
-        child: CustomScrollView(
-          slivers: [
-            SliverAppBar(
-              floating: true,
-              pinned: true,
-              title: const Text('Hotello',
-                  style: TextStyle(
-                      fontWeight: FontWeight.bold, color: Colors.white)),
-              backgroundColor: Colors.deepPurple,
-              actions: [
-                // Sync button
-                _isSynchronizing 
-                  ? Container(
-                      margin: const EdgeInsets.only(right: 10),
-                      width: 20,
-                      height: 20,
-                      child: const CircularProgressIndicator(
-                        color: Colors.white,
-                        strokeWidth: 2,
-                      ),
-                    )
-                  : IconButton(
-                      icon: const Icon(Icons.sync, color: Colors.white),
-                      onPressed: _synchronizeData,
-                      tooltip: 'Synchroniser les données',
-                    ),
-                IconButton(
-                  icon: const Icon(Icons.notifications_outlined,
-                      color: Colors.white),
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                          builder: (context) => const NotificationPage()),
-                    );
-                  },
-                ),
-              ],
-            ),
-            SliverToBoxAdapter(
-              child: Container(
-                padding: const EdgeInsets.all(16),
-                decoration: const BoxDecoration(
-                  color: Colors.deepPurple,
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        CircleAvatar(
-                          radius: 30,
-                          backgroundColor: Colors.white.withOpacity(0.2),
-                          child: _buildProfileImage(),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Welcome, $username!',
-                                style: const TextStyle(
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.white),
-                              ),
-                              const Text(
-                                'Find your perfect stay',
-                                style: TextStyle(
-                                    fontSize: 14, color: Colors.white70),
-                              ),
-                            ],
-                          ),
-                        ),
-                        // Edit profile button removed
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            // Search bar removed - non-functional
-            // Add Featured Hotels section
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          'Featured Hotels',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        if (_isAdmin)
-                          TextButton(
-                            onPressed: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => const AdminPage(),
-                                ),
-                              ).then((_) => _loadHotels());
-                            },
-                            child: const Text('Manage'),
-                          ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            // Display hotels
-            _isLoadingHotels
-                ? const SliverToBoxAdapter(
-                    child: Center(child: CircularProgressIndicator()),
-                  )
-                : _hotels.isEmpty
-                    ? const SliverToBoxAdapter(
-                        child: Center(
-                          child: Padding(
-                            padding: EdgeInsets.all(16.0),
-                            child: Text('No hotels available'),
-                          ),
-                        ),
-                      )
-                    : SliverList(
-                        delegate: SliverChildBuilderDelegate(
-                          (context, index) {
-                            final hotel = _hotels[index];
-                            return _buildHotelCard(
-                              hotel['name'],
-                              '${hotel['rating']} ★',
-                              '\$${hotel['price']}/night',
-                              hotel['location'],
-                              hotel['imageData'],
-                              hotel,  // Passez l'objet hôtel complet comme dernier argument
-                            );
-                          },
-                          childCount: _hotels.length,
-                        ),
-                      ),
-            // ...existing Recent Bookings section...
-            const SliverToBoxAdapter(
-              child: SizedBox(height: 80),
-            ),
-          ],
-        ),
-      ),
-    );
+  
+  void _onItemTapped(int index) { // Keep existing
+    if (mounted) {
+      setState(() {
+        _selectedIndex = index;
+      });
+    }
   }
 
   Widget _buildDrawer() {
@@ -677,208 +507,7 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  // Mettez à jour la méthode _buildHotelCard pour afficher les fonctionnalités
-  Widget _buildHotelCard(
-      String name, String rating, String price, String location, String? imageData, Map<String, dynamic> hotel) {
-    // Récupérer les fonctionnalités
-    List<dynamic> features = hotel['features'] ?? [];
-    
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      elevation: 2,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Stack(
-            children: [
-              ClipRRect(
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-                child: _buildHotelImage(imageData, hotel['imageUrl']),
-              ),
-            ],
-          ),
-          Padding(
-            padding: const EdgeInsets.all(12.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  name,
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Row(
-                  children: [
-                    const Icon(Icons.star, color: Colors.amber, size: 16),
-                    const SizedBox(width: 4),
-                    Text(
-                      rating,
-                      style: const TextStyle(
-                        fontSize: 14,
-                        color: Colors.grey,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  price,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.deepPurple,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Row(
-                  children: [
-                    const Icon(Icons.location_on, color: Colors.grey, size: 16),
-                    const SizedBox(width: 4),
-                    Expanded(
-                      child: Text(
-                        location,
-                        style: const TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
-                ),
-                
-                // Afficher les fonctionnalités
-                if (features.isNotEmpty) 
-                  Padding(
-                    padding: const EdgeInsets.only(top: 8.0),
-                    child: Wrap(
-                      spacing: 6.0,
-                      runSpacing: 6.0,
-                      children: features.take(3).map<Widget>((feature) {
-                        return Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 2.0),
-                          decoration: BoxDecoration(
-                            color: Colors.deepPurple.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Text(
-                            feature.toString(),
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: Colors.deepPurple,
-                            ),
-                          ),
-                        );
-                      }).toList(),
-                    ),
-                  ),
-                
-                // Bouton Consulter
-                const SizedBox(height: 12),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton.icon(
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => HotelDetailsPage(hotelData: hotel, hotelId: hotel['id'] as String),
-                        ),
-                      );
-                    },
-                    icon: const Icon(Icons.visibility),
-                    label: const Text('Consulter'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.deepPurple,
-                      foregroundColor: Colors.white,
-                      elevation: 0,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildHotelImage(String? imageData, String? imageUrl) {
-  // Priorité à imageData (base64) s'il existe
-  if (imageData != null && imageData.isNotEmpty) {
-    try {
-      return Image.memory(
-        base64Decode(imageData),
-        height: 150,
-        width: double.infinity,
-        fit: BoxFit.cover,
-        errorBuilder: (context, error, stackTrace) {
-          print('Error loading base64 image: $error');
-          // Si l'image base64 échoue, essayer imageUrl
-          if (imageUrl != null && imageUrl.isNotEmpty) {
-            return _buildImageFromUrl(imageUrl);
-          }
-          return _buildPlaceholderImage();
-        },
-      );
-    } catch (e) {
-      print('Error decoding base64 image: $e');
-      // Si le décodage base64 échoue, essayer imageUrl
-      if (imageUrl != null && imageUrl.isNotEmpty) {
-        return _buildImageFromUrl(imageUrl);
-      }
-    }
-  }
-  
-  // Ensuite essayer imageUrl
-  if (imageUrl != null && imageUrl.isNotEmpty) {
-    return _buildImageFromUrl(imageUrl);
-  }
-  
-  // Fallback
-  return _buildPlaceholderImage();
-}
-
-Widget _buildImageFromUrl(String url) {
-  return Image.network(
-    url,
-    height: 150,
-    width: double.infinity,
-    fit: BoxFit.cover,
-    loadingBuilder: (context, child, loadingProgress) {
-      if (loadingProgress == null) return child;
-      return Center(
-        child: CircularProgressIndicator(
-          value: loadingProgress.expectedTotalBytes != null
-              ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
-              : null,
-        ),
-      );
-    },
-    errorBuilder: (context, error, stackTrace) {
-      print('Error loading network image: $error');
-      return _buildPlaceholderImage();
-    },
-  );
-}
-
-Widget _buildPlaceholderImage() {
-  return Container(
-    height: 150,
-    color: Colors.deepPurple.withOpacity(0.2),
-    child: Center(
-      child: Icon(Icons.hotel, size: 40, color: Colors.deepPurple.withOpacity(0.7)),
-    ),
-  );
-}
-
-Widget _buildProfileImage() {
+  Widget _buildProfileImage() {
   // Essayer d'abord les données base64
   if (_profileImageData != null && _profileImageData!.isNotEmpty) {
     try {
@@ -998,67 +627,6 @@ void _showChatbotDialog() {
   List<Map<String, dynamic>> _getFeaturedHotels(List<Map<String, dynamic>> hotels) {
     // Example: take first 5 hotels or implement specific logic
     return hotels.take(5).toList();
-  }
-
-  List<Map<String, dynamic>> _getTopRatedHotels(List<Map<String, dynamic>> hotels) {
-    List<Map<String, dynamic>> sortedHotels = List.from(hotels);
-    sortedHotels.sort((a, b) {
-      double ratingA = double.tryParse(a['rating']?.toString() ?? '0.0') ?? 0.0;
-      double ratingB = double.tryParse(b['rating']?.toString() ?? '0.0') ?? 0.0;
-      return ratingB.compareTo(ratingA); // Sort descending
-    });
-    return sortedHotels.take(5).toList(); // Take top 5
-  }
-
-  Future<void> _loadRecentlyViewedHotels() async {
-    if (!mounted) return;
-    final prefs = await SharedPreferences.getInstance();
-    final List<String>? hotelIds = prefs.getStringList(_recentlyViewedKey);
-
-    if (hotelIds != null && _hotels.isNotEmpty) {
-      final loadedRecent = <Map<String, dynamic>>[];
-      for (String id in hotelIds) {
-        try {
-          final hotel = _hotels.firstWhere((h) => h['id'] == id);
-          loadedRecent.add(hotel);
-        } catch (e) {
-          // Hotel with this ID not found in current _hotels list, might have been deleted
-          print("Recently viewed hotel with ID $id not found.");
-        }
-      }
-      if (mounted) {
-        setState(() {
-          _recentlyViewedHotels = loadedRecent;
-        });
-      }
-    }
-  }
-
-  Future<void> _addRecentlyViewedHotel(Map<String, dynamic> hotel) async {
-    if (!mounted || hotel['id'] == null) return;
-    final prefs = await SharedPreferences.getInstance();
-    
-    List<Map<String, dynamic>> updatedRecent = List.from(_recentlyViewedHotels);
-
-    // Remove if already exists to move it to the front
-    updatedRecent.removeWhere((h) => h['id'] == hotel['id']);
-    
-    // Add to the beginning
-    updatedRecent.insert(0, hotel);
-
-    // Limit the list size
-    if (updatedRecent.length > _maxRecentlyViewed) {
-      updatedRecent = updatedRecent.sublist(0, _maxRecentlyViewed);
-    }
-
-    final List<String> hotelIdsToSave = updatedRecent.map((h) => h['id'] as String).toList();
-    await prefs.setStringList(_recentlyViewedKey, hotelIdsToSave);
-
-    if (mounted) {
-      setState(() {
-        _recentlyViewedHotels = updatedRecent;
-      });
-    }
   }
 
   Widget _buildHotelCard(Map<String, dynamic> hotel, {bool isSmall = false}) {
