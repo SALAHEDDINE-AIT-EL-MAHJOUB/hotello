@@ -825,9 +825,9 @@ void _showChatbotDialog() {
           flexibleSpace: FlexibleSpaceBar(
             centerTitle: true,
             titlePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            title: _isSynchronizing // Afficher le nom de l'app ou le loader de synchro
+            title: _isSynchronizing // Afficher le loader de synchro ou rien
                 ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2,))
-                : const Text('Hotello', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 18)),
+                : const SizedBox.shrink(), // MODIFIÉ ICI: Supprime le texte "Hotello"
             background: Container( // Contenu de l'en-tête étendu
               padding: const EdgeInsets.fromLTRB(16, 60, 16, 16), // Ajuster le padding supérieur pour l'AppBar
               decoration: BoxDecoration(
