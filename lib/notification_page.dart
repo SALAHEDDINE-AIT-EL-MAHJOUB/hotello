@@ -125,27 +125,6 @@ class _NotificationPageState extends State<NotificationPage> {
       if (user != null) {
         final bookingsSnapshot = await FirebaseDatabase.instance
             .ref('bookings')
-          title: 'Welcome to Hotello!',
-          message: 'Thank you for joining Hotello. Start exploring the best hotels around the world.',
-          timestamp: DateTime.now().subtract(const Duration(minutes: 30)),
-          isRead: false,
-          type: NotificationType.info,
-        ),
-        NotificationItem(
-          id: '2',
-          title: 'Special Discount!',
-          message: 'Get 20% off on your first booking with code WELCOME20.',
-          timestamp: DateTime.now().subtract(const Duration(hours: 2)),
-          isRead: false,
-          type: NotificationType.promotion,
-        ),
-      ]);
-      
-      // Fetch user's booking data from Firebase
-      final user = FirebaseAuth.instance.currentUser;
-      if (user != null) {
-        final bookingsSnapshot = await FirebaseDatabase.instance
-            .ref('bookings')
             .orderByChild('userId')
             .equalTo(user.uid)
             .get();
