@@ -31,6 +31,8 @@ dependencies:
     sdk: flutter
   csv: ^6.0.0 # Or the latest version
   http: ^1.2.1 # Or the latest version
+  geolocator: ^11.0.0 # Vérifiez la dernière version
+  permission_handler: ^11.0.0 # Vérifiez la dernière version
 
 dev_dependencies:
   flutter_test:
