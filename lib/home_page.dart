@@ -41,11 +41,30 @@ class _HomePageState extends State<HomePage> {
   // Auto-sync timer
   Timer? _syncTimer;
 
+  List<Map<String, dynamic>> _featuredHotels = [];
+  List<Map<String, dynamic>> _topRatedHotels = []; // For Top Rated
+  List<Map<String, dynamic>> _recentlyViewedHotels = []; // For Recently Viewed
+  bool _isLoading = true;
+  User? _currentUser;
+  String _searchQuery = '';
+  final TextEditingController _searchController = TextEditingController();
+  StreamSubscription<DatabaseEvent>? _hotelsSubscription;
+
+  static const String _recentlyViewedKey = 'recently_viewed_hotels';
+  static const int _maxRecentlyViewed = 5;
+
   @override
   void initState() {
     super.initState();
     _initialLoad();
     _setupSynchronization();
+    _checkAdminStatus();
+    _setupHotelsListener();
+    _searchController.addListener(() {
+      setState(() {
+        _searchQuery = _searchController.text;
+      });
+    });
   }
   
   @override
@@ -54,6 +73,8 @@ class _HomePageState extends State<HomePage> {
     _hotelsListener?.cancel();
     _userDataListener?.cancel();
     _syncTimer?.cancel();
+    _searchController.dispose();
+    _hotelsSubscription?.cancel();
     super.dispose();
   }
   
@@ -973,4 +994,376 @@ void _showChatbotDialog() {
     ),
   );
 }
+
+  List<Map<String, dynamic>> _getFeaturedHotels(List<Map<String, dynamic>> hotels) {
+    // Example: take first 5 hotels or implement specific logic
+    return hotels.take(5).toList();
+  }
+
+  List<Map<String, dynamic>> _getTopRatedHotels(List<Map<String, dynamic>> hotels) {
+    List<Map<String, dynamic>> sortedHotels = List.from(hotels);
+    sortedHotels.sort((a, b) {
+      double ratingA = double.tryParse(a['rating']?.toString() ?? '0.0') ?? 0.0;
+      double ratingB = double.tryParse(b['rating']?.toString() ?? '0.0') ?? 0.0;
+      return ratingB.compareTo(ratingA); // Sort descending
+    });
+    return sortedHotels.take(5).toList(); // Take top 5
+  }
+
+  Future<void> _loadRecentlyViewedHotels() async {
+    if (!mounted) return;
+    final prefs = await SharedPreferences.getInstance();
+    final List<String>? hotelIds = prefs.getStringList(_recentlyViewedKey);
+
+    if (hotelIds != null && _hotels.isNotEmpty) {
+      final loadedRecent = <Map<String, dynamic>>[];
+      for (String id in hotelIds) {
+        try {
+          final hotel = _hotels.firstWhere((h) => h['id'] == id);
+          loadedRecent.add(hotel);
+        } catch (e) {
+          // Hotel with this ID not found in current _hotels list, might have been deleted
+          print("Recently viewed hotel with ID $id not found.");
+        }
+      }
+      if (mounted) {
+        setState(() {
+          _recentlyViewedHotels = loadedRecent;
+        });
+      }
+    }
+  }
+
+  Future<void> _addRecentlyViewedHotel(Map<String, dynamic> hotel) async {
+    if (!mounted || hotel['id'] == null) return;
+    final prefs = await SharedPreferences.getInstance();
+    
+    List<Map<String, dynamic>> updatedRecent = List.from(_recentlyViewedHotels);
+
+    // Remove if already exists to move it to the front
+    updatedRecent.removeWhere((h) => h['id'] == hotel['id']);
+    
+    // Add to the beginning
+    updatedRecent.insert(0, hotel);
+
+    // Limit the list size
+    if (updatedRecent.length > _maxRecentlyViewed) {
+      updatedRecent = updatedRecent.sublist(0, _maxRecentlyViewed);
+    }
+
+    final List<String> hotelIdsToSave = updatedRecent.map((h) => h['id'] as String).toList();
+    await prefs.setStringList(_recentlyViewedKey, hotelIdsToSave);
+
+    if (mounted) {
+      setState(() {
+        _recentlyViewedHotels = updatedRecent;
+      });
+    }
+  }
+
+  Widget _buildHotelCard(Map<String, dynamic> hotel, {bool isSmall = false}) {
+    final String name = hotel['name'] ?? 'Unknown Hotel';
+    final String location = hotel['location'] ?? 'Unknown Location';
+    final String price = hotel['price']?.toString() ?? 'N/A';
+    final String rating = hotel['rating']?.toString() ?? 'N/A';
+    final String? imageData = hotel['imageData'] as String?;
+    final String? imageUrl = hotel['imageUrl'] as String?;
+    final List<String> features = hotel['features'] is List
+        ? List<String>.from(hotel['features'])
+        : (hotel['features'] != null ? [hotel['features'].toString()] : []);
+
+
+    Widget imageWidget;
+    if (imageData != null && imageData.isNotEmpty) {
+      try {
+        imageWidget = Image.memory(
+          base64Decode(imageData),
+          height: isSmall ? 100 : 150,
+          width: double.infinity,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) => _buildFallbackImage(isSmall: isSmall),
+        );
+      } catch (e) {
+        imageWidget = _buildFallbackImage(isSmall: isSmall);
+      }
+    } else if (imageUrl != null && imageUrl.isNotEmpty) {
+      imageWidget = Image.network(
+        imageUrl,
+        height: isSmall ? 100 : 150,
+        width: double.infinity,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) => _buildFallbackImage(isSmall: isSmall),
+        loadingBuilder: (BuildContext context, Widget child, ImageChunkEvent? loadingProgress) {
+          if (loadingProgress == null) return child;
+          return SizedBox(
+            height: isSmall ? 100 : 150,
+            child: Center(
+              child: CircularProgressIndicator(
+                value: loadingProgress.expectedTotalBytes != null
+                    ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
+                    : null,
+              ),
+            ),
+          );
+        },
+      );
+    } else {
+      imageWidget = _buildFallbackImage(isSmall: isSmall);
+    }
+
+    return Card(
+      elevation: 3,
+      margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 5),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => HotelDetailsPage(hotelData: hotel, hotelId: hotel['id'] as String),
+            ),
+          ).then((_) {
+             // When returning from details, add to recently viewed
+            _addRecentlyViewedHotel(hotel);
+          });
+        },
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            ClipRRect(
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+              child: imageWidget,
+            ),
+            Padding(
+              padding: const EdgeInsets.all(10.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    name,
+                    style: TextStyle(fontSize: isSmall ? 14 : 17, fontWeight: FontWeight.bold),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  if (!isSmall) const SizedBox(height: 4),
+                  if (!isSmall)
+                    Text(
+                      location,
+                      style: TextStyle(fontSize: 13, color: Colors.grey[700]),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  const SizedBox(height: 6),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        '\$$price/nuit',
+                        style: TextStyle(
+                            fontSize: isSmall ? 13 : 15,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.deepPurple),
+                      ),
+                      Row(
+                        children: [
+                          Icon(Icons.star, color: Colors.amber, size: isSmall ? 14 : 18),
+                          const SizedBox(width: 4),
+                          Text(rating, style: TextStyle(fontSize: isSmall ? 13: 14)),
+                        ],
+                      ),
+                    ],
+                  ),
+                  if (!isSmall && features.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 6.0,
+                      runSpacing: 4.0,
+                      children: features.take(2).map((feature) => Chip(
+                        label: Text(feature, style: const TextStyle(fontSize: 10)),
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 0),
+                        backgroundColor: Colors.deepPurple.withOpacity(0.1),
+                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      )).toList(),
+                    ),
+                  ]
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFallbackImage({bool isSmall = false}) {
+    return Container(
+      height: isSmall ? 100 : 150,
+      color: Colors.grey[300],
+      child: Center(
+        child: Icon(
+          Icons.hotel,
+          color: Colors.grey[500],
+          size: isSmall ? 40 : 60,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRecommendationSection({
+    required String title,
+    required List<Map<String, dynamic>> hotels,
+    required bool isLoading,
+  }) {
+    if (isLoading && hotels.isEmpty) { // Show loader only if initially loading and no data
+      return const SizedBox.shrink(); // Or a small loader
+    }
+    if (hotels.isEmpty) {
+      return const SizedBox.shrink(); // Don't show section if no hotels
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
+          child: Text(
+            title,
+            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black87),
+          ),
+        ),
+        SizedBox(
+          height: 260, // Adjust height as needed for small cards
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            itemCount: hotels.length,
+            itemBuilder: (context, index) {
+              return SizedBox(
+                width: 200, // Adjust width for small cards
+                child: _buildHotelCard(hotels[index], isSmall: true),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildHomePageContent() {
+    final filteredHotels = _hotels.where((hotel) {
+      final hotelName = hotel['name']?.toString().toLowerCase() ?? '';
+      final hotelLocation = hotel['location']?.toString().toLowerCase() ?? '';
+      final query = _searchQuery.toLowerCase();
+      return hotelName.contains(query) || hotelLocation.contains(query);
+    }).toList();
+
+    return CustomScrollView(
+      slivers: [
+        SliverToBoxAdapter(
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: const BoxDecoration(
+              color: Colors.deepPurple,
+              // borderRadius: BorderRadius.only(
+              //   bottomLeft: Radius.circular(20),
+              //   bottomRight: Radius.circular(20),
+              // ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Trouvez votre prochain séjour',
+                  style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Recherchez des offres sur les hôtels, les maisons et bien plus encore...',
+                  style: TextStyle(fontSize: 14, color: Colors.white70),
+                ),
+                const SizedBox(height: 20),
+                TextField(
+                  controller: _searchController,
+                  decoration: InputDecoration(
+                    hintText: 'Ex: Paris, Hôtel de la plage...',
+                    hintStyle: TextStyle(color: Colors.grey[600]),
+                    prefixIcon: Icon(Icons.search, color: Colors.grey[600]),
+                    filled: true,
+                    fillColor: Colors.white,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide.none,
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
+                ),
+                const SizedBox(height: 10),
+              ],
+            ),
+          ),
+        ),
+
+        // Recently Viewed Section
+        if (_recentlyViewedHotels.isNotEmpty)
+          SliverToBoxAdapter(
+            child: _buildRecommendationSection(
+              title: 'Consultés récemment',
+              hotels: _recentlyViewedHotels,
+              isLoading: _isLoading, // Pass loading state
+            ),
+          ),
+        
+        // Top Rated Section
+        if (_topRatedHotels.isNotEmpty)
+          SliverToBoxAdapter(
+            child: _buildRecommendationSection(
+              title: 'Hôtels les Mieux Notés',
+              hotels: _topRatedHotels,
+              isLoading: _isLoading, // Pass loading state
+            ),
+          ),
+
+        // Featured Hotels Section (Original "Featured" or "All Hotels" if search is empty)
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
+            child: Text(
+              _searchQuery.isEmpty ? 'Hôtels populaires' : 'Résultats de recherche',
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black87),
+            ),
+          ),
+        ),
+        _isLoading && filteredHotels.isEmpty // Show loader if loading and no results yet
+            ? const SliverFillRemaining(child: Center(child: CircularProgressIndicator()))
+            : filteredHotels.isEmpty
+                ? SliverFillRemaining(
+                    child: Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(20.0),
+                        child: Text(
+                          _searchQuery.isEmpty ? 'Aucun hôtel disponible pour le moment.' : 'Aucun hôtel ne correspond à votre recherche.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(fontSize: 16, color: Colors.grey[700]),
+                        ),
+                      ),
+                    ),
+                  )
+                : SliverPadding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 10.0),
+                    sliver: SliverList(
+                      delegate: SliverChildBuilderDelegate(
+                        (context, index) {
+                          return _buildHotelCard(filteredHotels[index]);
+                        },
+                        childCount: filteredHotels.length,
+                      ),
+                    ),
+                  ),
+      ],
+    );
+  }
 }
