@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "206488192770",
+    "project_id": "hotello-594e2",
+    "storage_bucket": "hotello-594e2.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:206488192770:android:bb8c4defce4b248f5fa41b",
+        "android_client_info": {
+          "package_name": "com.example.flutter_application_1"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCyu6bGQ031rtjpVzCQcn_0b6IGFPhfI7M"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

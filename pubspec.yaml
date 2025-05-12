@@ -1,0 +1,70 @@
+name: flutter_application_1
+description: A new Flutter project.
+
+publish_to: "none" # Remove this line if you want to publish to pub.dev
+
+version: 1.0.0+1
+
+environment:
+  sdk: ">=2.19.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # The following adds the Cupertino Icons font to your application.
+  # Use with the CupertinoIcons class for iOS style icons.
+  cupertino_icons: ^1.0.8
+  intl: ^0.19.0 # Remplacez par la version actuelle souhaitée depuis pub.dev
+  flex_color_picker: ^3.5.1
+  image_picker: ^1.1.2
+  dotted_border: ^2.1.0
+  firebase_auth: ^4.19.5 # Remplacez par la version actuelle souhaitée depuis pub.dev
+  shared_preferences: ^2.2.0
+  firebase_storage: ^11.6.4
+  firebase_database: ^10.5.5 # Remplacez par la version actuelle souhaitée depuis pub.dev
+  firebase_core: ^2.31.0 # Remplacez par la version actuelle souhaitée depuis pub.dev
+  firebase_messaging: ^14.9.2 # Remplacez par la version actuelle souhaitée depuis pub.dev
+  uuid: ^4.0.0
+  provider: ^6.0.5
+  flutter_localizations:
+    sdk: flutter
+  csv: ^6.0.0 # Or the latest version
+  http: ^1.2.1 # Or the latest version
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+  flutter_launcher_icons: "^0.13.1" # Ajoutez cette ligne
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/marrakech_hotels.csv
+    - assets/images/icon.jpg # Assurez-vous que ce chemin est listé si vous l'utilisez ailleurs
+    - assets/images/logo.png
+
+flutter_launcher_icons:
+  android: "launcher_icon" # Nom du fichier icône pour Android
+  ios: true # Générer les icônes pour iOS
+  image_path: "assets/icon.png" # Assurez-vous que ce chemin est correct
+  min_sdk_android: 21 # Optionnel: version minimale du SDK Android
+  remove_alpha_ios: true # Optionnel: pour supprimer le canal alpha sur iOS si nécessaire
+  # web:
+  #   generate: true
+  #   image_path: "path/to/image.png"
+  #   background_color: "#hexcode"
+  #   theme_color: "#hexcode"
+  # windows:
+  #   generate: true
+  #   image_path: "path/to/image.png"
+  #   icon_size: 48 # Produces 48x48 icon
+  # macos:
+  #   generate: true
+  #   image_path: "path/to/image.png"
+
+flutter_icons:
+  android: "launcher_icon"
+  ios: true
+  image_path: "assets/icon.jpg" # Remplacez par le chemin de votre icône
