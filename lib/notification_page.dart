@@ -123,6 +123,20 @@ class _NotificationPageState extends State<NotificationPage> {
       
       final user = FirebaseAuth.instance.currentUser;
       if (user != null) {
+        // Ajouter la notification de création de compte
+        if (user.metadata.creationTime != null) {
+          allNotifications.add(
+            NotificationItem(
+              id: 'account-creation-${user.uid}', // ID unique
+              title: 'Compte Créé',
+              message: 'Votre compte Hotello a été créé le ${DateFormat.yMMMd('fr_FR').format(user.metadata.creationTime!)}.',
+              timestamp: user.metadata.creationTime!, // Utiliser la date de création comme timestamp
+              isRead: false, // Peut être marqué comme lu si vous le souhaitez
+              type: NotificationType.account,
+            ),
+          );
+        }
+
         final bookingsSnapshot = await FirebaseDatabase.instance
             .ref('bookings')
             .orderByChild('userId')
