@@ -44,6 +44,7 @@ class _BookingsPageState extends State<BookingsPage> {
         bookingsData.forEach((key, value) {
           loadedBookings.add({
             'id': key,
+            'hotelId': value['hotelId'] ?? 'ID_HOTEL_INCONNU', // Assurez-vous que 'hotelId' est dans vos données de réservation Firebase
             'hotelName': value['hotelName'] ?? 'Unknown Hotel',
             'checkIn': DateTime.fromMillisecondsSinceEpoch(value['checkIn']),
             'checkOut': DateTime.fromMillisecondsSinceEpoch(value['checkOut']),
@@ -219,6 +220,7 @@ class _BookingsPageState extends State<BookingsPage> {
                                           builder: (context) => LeaveReviewPage(
                                             bookingId: booking['id'],
                                             hotelName: booking['hotelName'],
+                                            hotelId: booking['hotelId'], // AJOUTER CECI
                                           ),
                                         ),
                                       );
