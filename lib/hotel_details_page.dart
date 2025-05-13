@@ -1,23 +1,177 @@
 import 'dart:convert'; // For base64Decode
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_database/firebase_database.dart'; // Importer Firebase Database
 import 'widgets/booking_dialog.dart';
+import 'package:intl/intl.dart'; // Pour le formatage de la date des avis
 
-class HotelDetailsPage extends StatelessWidget {
-  final Map<String, dynamic> hotelData; // MODIFIED: Changed type to Map<String, dynamic>
-  final String hotelId;
+// MODIFIED: Convert to StatefulWidget
+class HotelDetailsPage extends StatefulWidget {
+  final Map<String, dynamic> hotelData;
+  final String hotelId; // Gardez hotelId, c'est mieux pour filtrer les avis
 
   const HotelDetailsPage({super.key, required this.hotelData, required this.hotelId});
 
   @override
+  State<HotelDetailsPage> createState() => _HotelDetailsPageState();
+}
+
+class _HotelDetailsPageState extends State<HotelDetailsPage> {
+  List<Map<String, dynamic>> _reviews = [];
+  bool _isLoadingReviews = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadReviews();
+  }
+
+  Future<void> _loadReviews() async {
+    setState(() {
+      _isLoadingReviews = true;
+      _reviews = []; // Clear previous reviews
+    });
+    try {
+      // Utiliser widget.hotelId pour filtrer les avis serait plus robuste.
+      // Pour l'instant, on se base sur hotelName comme dans LeaveReviewPage.
+      // Idéalement, LeaveReviewPage devrait aussi enregistrer hotelId.
+      final reviewsSnapshot = await FirebaseDatabase.instance
+          .ref('reviews')
+          .orderByChild('hotelName') // Ou 'hotelId' si vous l'enregistrez
+          .equalTo(widget.hotelData['name']) // Ou widget.hotelId
+          .get();
+
+      if (reviewsSnapshot.exists) {
+        final reviewsData = reviewsSnapshot.value as Map<dynamic, dynamic>;
+        final List<Map<String, dynamic>> loadedReviews = [];
+
+        for (var entry in reviewsData.entries) {
+          final review = Map<String, dynamic>.from(entry.value as Map);
+          review['id'] = entry.key; // L'ID de l'avis
+
+          // Récupérer le nom de l'utilisateur
+          final userId = review['userId'];
+          if (userId != null) {
+            final userSnapshot = await FirebaseDatabase.instance.ref('users').child(userId).get();
+            if (userSnapshot.exists && userSnapshot.value != null) {
+              final userData = Map<String, dynamic>.from(userSnapshot.value as Map);
+              review['userName'] = userData['name'] ?? userData['firstName'] ?? 'Utilisateur Anonyme';
+            } else {
+              review['userName'] = 'Utilisateur Anonyme';
+            }
+          } else {
+            review['userName'] = 'Utilisateur Anonyme';
+          }
+          loadedReviews.add(review);
+        }
+        // Trier les avis par date (plus récent en premier)
+        loadedReviews.sort((a, b) => (b['timestamp'] ?? 0).compareTo(a['timestamp'] ?? 0));
+        _reviews = loadedReviews;
+      }
+    } catch (e) {
+      print('Error loading reviews: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur lors du chargement des avis: $e')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoadingReviews = false);
+      }
+    }
+  }
+
+  Widget _buildStarRating(int rating) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: List.generate(5, (index) {
+        return Icon(
+          index < rating ? Icons.star : Icons.star_border,
+          color: Colors.amber,
+          size: 16,
+        );
+      }),
+    );
+  }
+
+  Widget _buildReviewsSection() {
+    if (_isLoadingReviews) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (_reviews.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 20.0),
+        child: Center(child: Text('Aucun avis pour cet hôtel pour le moment.')),
+      );
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 24),
+        Text(
+          'Avis des clients (${_reviews.length})',
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 8),
+        ListView.builder(
+          shrinkWrap: true, // Important dans un SingleChildScrollView
+          physics: const NeverScrollableScrollPhysics(), // Pour désactiver le scroll interne
+          itemCount: _reviews.length,
+          itemBuilder: (context, index) {
+            final review = _reviews[index];
+            final DateTime reviewDate = review['timestamp'] != null
+                ? DateTime.fromMillisecondsSinceEpoch(review['timestamp'])
+                : DateTime.now();
+
+            return Card(
+              margin: const EdgeInsets.symmetric(vertical: 8.0),
+              elevation: 1,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              child: Padding(
+                padding: const EdgeInsets.all(12.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          review['userName'] ?? 'Utilisateur Anonyme',
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        if (review['rating'] != null && review['rating'] > 0)
+                          _buildStarRating(review['rating'] as int),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                     Text(
+                      DateFormat('dd MMM yyyy, HH:mm', 'fr_FR').format(reviewDate),
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.grey),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(review['reviewText'] ?? ''),
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+
+  @override
   Widget build(BuildContext context) {
-    final String name = hotelData['name'] ?? 'Nom non disponible';
-    final String location = hotelData['location'] ?? 'Lieu non disponible';
-    final String price = hotelData['price']?.toString() ?? 'N/A';
-    final String description = hotelData['description'] ?? 'Aucune description disponible.';
-    final String phone = hotelData['phone'] ?? 'Contact non disponible';
-    final String? imageUrl = hotelData['imageUrl'] as String?;
-    final String? imageData = hotelData['imageData'] as String?;
+    // Les données de l'hôtel sont maintenant accessibles via widget.hotelData
+    final String name = widget.hotelData['name'] ?? 'Nom non disponible';
+    final String location = widget.hotelData['location'] ?? 'Lieu non disponible';
+    final String price = widget.hotelData['price']?.toString() ?? 'N/A';
+    final String description = widget.hotelData['description'] ?? 'Aucune description disponible.';
+    final String phone = widget.hotelData['phone'] ?? 'Contact non disponible';
+    final String? imageUrl = widget.hotelData['imageUrl'] as String?;
+    final String? imageData = widget.hotelData['imageData'] as String?;
 
     return Scaffold(
       appBar: AppBar(
@@ -78,10 +232,7 @@ class HotelDetailsPage extends StatelessWidget {
             Text(
               name,
               style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
-              softWrap: true, // ADDED: To allow text to wrap
-              // OU pour couper avec des ellipses si trop long sur plusieurs lignes :
-              // overflow: TextOverflow.ellipsis,
-              // maxLines: 2, 
+              softWrap: true,
             ),
             const SizedBox(height: 8),
 
@@ -95,7 +246,7 @@ class HotelDetailsPage extends StatelessWidget {
             const SizedBox(height: 16),
 
             Text(
-              'Prix par nuit: \$${price}',
+              'Prix par nuit: \$${price}', // Devise à adapter si besoin
               style: Theme.of(context).textTheme.titleLarge?.copyWith(color: Colors.deepPurple, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 24),
@@ -126,6 +277,10 @@ class HotelDetailsPage extends StatelessWidget {
                 ),
               ],
             ),
+            
+            // Section des avis
+            _buildReviewsSection(),
+
             const SizedBox(height: 32),
 
             Center(
@@ -145,14 +300,16 @@ class HotelDetailsPage extends StatelessWidget {
                   }
 
                   if (context.mounted) {
+                    // Passez widget.hotelData et widget.hotelId au BookingDialog
                     final result = await showDialog<bool>(
                       context: context,
-                      builder: (context) => BookingDialog(hotel: hotelData),
+                      builder: (context) => BookingDialog(hotel: widget.hotelData, hotelId: widget.hotelId),
                     );
                     
                     if (result == true) {
                       if (context.mounted) {
-                        Navigator.of(context).pop();
+                        // Optionnel: Revenir à la page précédente ou afficher un message
+                        // Navigator.of(context).pop(); // Si vous voulez fermer HotelDetailsPage après réservation
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
                             content: Text('Réservation confirmée!'),
@@ -172,6 +329,7 @@ class HotelDetailsPage extends StatelessWidget {
                 child: const Text('Réserver maintenant'),
               ),
             ),
+            const SizedBox(height: 20), // Espace en bas
           ],
         ),
       ),
