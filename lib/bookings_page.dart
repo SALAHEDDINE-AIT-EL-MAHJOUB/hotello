@@ -211,7 +211,17 @@ class _BookingsPageState extends State<BookingsPage> {
                                   ),
                                 if (isPast && booking['status'] == 'confirmed') // Exemple: Laisser un avis
                                   TextButton.icon(
-                                    onPressed: () { /* TODO: Logique pour laisser un avis */ },
+                                    onPressed: () {
+                                      // TODO: Naviguer vers une page/dialogue pour laisser un avis
+                                      print('Laisser un avis pour la réservation ID: ${booking['id']} pour l\'hôtel: ${booking['hotelName']}');
+                                      // Exemple de navigation (à décommenter et adapter quand la page sera créée):
+                                      // Navigator.push(
+                                      //   context,
+                                      //   MaterialPageRoute(
+                                      //     builder: (context) => LeaveReviewPage(bookingId: booking['id'], hotelName: booking['hotelName']),
+                                      //   ),
+                                      // );
+                                    },
                                     icon: Icon(Icons.rate_review_outlined, size: 18, color: Colors.deepPurple.shade400),
                                     label: Text('Laisser un avis', style: TextStyle(color: Colors.deepPurple.shade600)),
                                      style: TextButton.styleFrom(
