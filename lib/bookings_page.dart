@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:intl/intl.dart';
+import 'leave_review_page.dart'; // Ajoutez cette importation
 
 class BookingsPage extends StatefulWidget {
   const BookingsPage({super.key});
@@ -212,15 +213,15 @@ class _BookingsPageState extends State<BookingsPage> {
                                 if (isPast && booking['status'] == 'confirmed') // Exemple: Laisser un avis
                                   TextButton.icon(
                                     onPressed: () {
-                                      // TODO: Naviguer vers une page/dialogue pour laisser un avis
-                                      print('Laisser un avis pour la réservation ID: ${booking['id']} pour l\'hôtel: ${booking['hotelName']}');
-                                      // Exemple de navigation (à décommenter et adapter quand la page sera créée):
-                                      // Navigator.push(
-                                      //   context,
-                                      //   MaterialPageRoute(
-                                      //     builder: (context) => LeaveReviewPage(bookingId: booking['id'], hotelName: booking['hotelName']),
-                                      //   ),
-                                      // );
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) => LeaveReviewPage(
+                                            bookingId: booking['id'],
+                                            hotelName: booking['hotelName'],
+                                          ),
+                                        ),
+                                      );
                                     },
                                     icon: Icon(Icons.rate_review_outlined, size: 18, color: Colors.deepPurple.shade400),
                                     label: Text('Laisser un avis', style: TextStyle(color: Colors.deepPurple.shade600)),
