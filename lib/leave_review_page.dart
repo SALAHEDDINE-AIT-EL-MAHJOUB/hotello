@@ -5,11 +5,13 @@ import 'package:firebase_database/firebase_database.dart';
 class LeaveReviewPage extends StatefulWidget {
   final String bookingId;
   final String hotelName;
+  final String hotelId; // AJOUTER CECI
 
   const LeaveReviewPage({
     super.key,
     required this.bookingId,
     required this.hotelName,
+    required this.hotelId, // AJOUTER CECI
   });
 
   @override
@@ -52,6 +54,7 @@ class _LeaveReviewPageState extends State<LeaveReviewPage> {
         'userId': user.uid,
         'bookingId': widget.bookingId,
         'hotelName': widget.hotelName,
+        'hotelId': widget.hotelId, // AJOUTER CECI
         'reviewText': _reviewController.text,
         'rating': int.tryParse(_ratingController.text) ?? 0, // Assurez-vous que c'est un nombre
         'timestamp': ServerValue.timestamp, // Pour trier par date
