@@ -6,8 +6,13 @@ import '../models/booking.dart';
 
 class BookingDialog extends StatefulWidget {
   final Map<String, dynamic> hotel;
+  final String hotelId;
 
-  const BookingDialog({super.key, required this.hotel});
+  const BookingDialog({
+    super.key,
+    required this.hotel,
+    required this.hotelId,
+  });
 
   @override
   State<BookingDialog> createState() => _BookingDialogState();
@@ -157,7 +162,7 @@ class _BookingDialogState extends State<BookingDialog> {
       // Créer les données de réservation
       final bookingData = {
         'id': bookingId,
-        'hotelId': widget.hotel['id'],
+        'hotelId': widget.hotelId,
         'userId': user.uid,
         'userName': user.displayName ?? 'Anonymous',
         'userEmail': user.email ?? 'No email',
