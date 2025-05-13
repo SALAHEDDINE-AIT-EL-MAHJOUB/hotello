@@ -32,13 +32,10 @@ class _HotelDetailsPageState extends State<HotelDetailsPage> {
       _reviews = []; // Clear previous reviews
     });
     try {
-      // Utiliser widget.hotelId pour filtrer les avis serait plus robuste.
-      // Pour l'instant, on se base sur hotelName comme dans LeaveReviewPage.
-      // Idéalement, LeaveReviewPage devrait aussi enregistrer hotelId.
       final reviewsSnapshot = await FirebaseDatabase.instance
           .ref('reviews')
-          .orderByChild('hotelName') // Ou 'hotelId' si vous l'enregistrez
-          .equalTo(widget.hotelData['name']) // Ou widget.hotelId
+          .orderByChild('hotelId') // MODIFIÉ: utiliser hotelId
+          .equalTo(widget.hotelId) // MODIFIÉ: utiliser widget.hotelId qui est passé à HotelDetailsPage
           .get();
 
       if (reviewsSnapshot.exists) {
