@@ -204,6 +204,54 @@ class _NotificationPageState extends State<NotificationPage> {
             }
           });
         }
+
+        final excursionBookingsSnapshot = await FirebaseDatabase.instance
+            .ref('excursionBookings')
+            .orderByChild('userId')
+            .equalTo(user.uid) // Assurez-vous que 'user' est l'objet User de FirebaseAuth
+            .get();
+
+        if (excursionBookingsSnapshot.exists) {
+          final excursionBookingsData = excursionBookingsSnapshot.value as Map<dynamic, dynamic>;
+          excursionBookingsData.forEach((key, value) {
+            final String excursionName = value['excursionName'] ?? 'Excursion inconnue';
+            final int numberOfPeople = value['numberOfPeople'] ?? 1;
+            // IMPORTANT: Utilisez 'excursionDate' que vous aurez stocké après sélection par l'utilisateur
+            // Pour l'instant, j'utilise 'bookingDate' comme placeholder pour la date de l'événement
+            final int eventTimestamp = value['excursionDate'] ?? value['bookingDate'] ?? DateTime.now().millisecondsSinceEpoch;
+            final DateTime eventDate = DateTime.fromMillisecondsSinceEpoch(eventTimestamp);
+            final DateTime creationTimestamp = DateTime.fromMillisecondsSinceEpoch(value['createdAt'] ?? eventTimestamp);
+
+            // Notification de confirmation de réservation d'excursion
+            allNotifications.add(
+              NotificationItem(
+                id: 'excursion-booking-$key',
+                title: 'Réservation d\'excursion confirmée',
+                message: 'Votre réservation pour "$excursionName" ($numberOfPeople personne(s)) le ${DateFormat.yMMMd('fr_FR').format(eventDate)} est confirmée.',
+                timestamp: creationTimestamp,
+                isRead: false, // Gérez l'état de lecture comme vous le faites pour les autres
+                type: NotificationType.excursion,
+              ),
+            );
+
+            // Notification de rappel (exemple : 1 jour avant)
+            final now = DateTime.now();
+            final reminderThreshold = eventDate.subtract(const Duration(days: 1));
+            if (now.isBefore(eventDate) && now.isAfter(reminderThreshold) || now.isAtSameMomentAs(reminderThreshold)) {
+               allNotifications.add(
+                NotificationItem(
+                  id: 'excursion-reminder-$key',
+                  title: 'Rappel d\'excursion',
+                  message: 'N\'oubliez pas votre excursion "$excursionName" demain !',
+                  // Mettez un timestamp qui a du sens pour l'ordre, ex: un peu avant l'événement
+                  timestamp: eventDate.subtract(const Duration(hours: 23)), 
+                  isRead: false,
+                  type: NotificationType.excursion,
+                ),
+              );
+            }
+          });
+        }
       }
       
       // Sort notifications by timestamp (newest first)
@@ -508,6 +556,10 @@ class _NotificationPageState extends State<NotificationPage> {
         iconData = Icons.hotel;
         iconColor = Colors.deepPurple;
         break;
+      case NotificationType.excursion:
+        iconData = Icons.directions_walk; // Ou une autre icône pertinente
+        iconColor = Colors.brown; // Choisissez une couleur
+        break;
     }
     
     return CircleAvatar(
@@ -543,7 +595,8 @@ enum NotificationType {
   info,
   promotion,
   account,
-  booking,
+  booking, // Pour les hôtels
+  excursion, // Nouveau pour les excursions
 }
 
 class NotificationItem {

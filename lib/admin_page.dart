@@ -9,6 +9,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_application_1/login_page.dart'; // Adaptez le chemin selon votre structure
 // Ajoutez cet import en haut du fichier
 import 'package:flutter_application_1/clients_page.dart';
+import 'package:flutter_application_1/admin_tour_services_page.dart'; // Add this import
 
 class AdminPage extends StatefulWidget {
   const AdminPage({super.key});
@@ -31,31 +32,33 @@ class _AdminPageState extends State<AdminPage> {
     setState(() {
       _isLoading = true;
     });
-    
     try {
-      final hotelsSnapshot = await FirebaseDatabase.instance.ref('hotels').get();
-      
-      if (hotelsSnapshot.exists) {
-        final hotelsData = hotelsSnapshot.value as Map<dynamic, dynamic>;
-        final loadedHotels = <Map<String, dynamic>>[];
+      final snapshot = await FirebaseDatabase.instance.ref('hotels').get();
+      if (snapshot.exists && snapshot.value != null) {
+        final Map<dynamic, dynamic> data = snapshot.value as Map<dynamic, dynamic>;
+        final List<Map<String, dynamic>> loadedHotels = [];
+        data.forEach((key, value) {
+          // Ensure value is a Map
+          if (value is! Map) return;
 
-        hotelsData.forEach((key, value) {
-          // Récupérer les fonctionnalités et les convertir en liste si nécessaire
-          List<dynamic> features = [];
-          if (value['features'] != null) {
-            features = value['features'] is List ? value['features'] : [value['features']];
+          // Convert features to List<String> safely
+          List<String> features = [];
+          if (value['features'] is List) {
+            for (var feature in (value['features'] as List)) {
+              features.add(feature.toString());
+            }
           }
-          
+
           loadedHotels.add({
             'id': key,
-            'name': value['name'],
-            'location': value['location'],
-            'price': value['price'],
-            'rating': value['rating'],
-            'description': value['description'],
-            'imageData': value['imageData'],  // Récupération de l'image en base64
-            'features': features,  // Ajout des fonctionnalités
-            'phone': value['phone'] ?? '', // Ajout du téléphone
+            'name': value['name'] ?? 'N/A',
+            'location': value['location'] ?? 'N/A',
+            'price': value['price']?.toString() ?? 'N/A',
+            'rating': value['rating']?.toString() ?? 'N/A',
+            'imageData': value['imageData'],
+            'description': value['description'] ?? '',
+            'features': features,
+            'phone': value['phone'] ?? '',
           });
         });
 
@@ -68,45 +71,41 @@ class _AdminPageState extends State<AdminPage> {
         });
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur lors du chargement des hôtels: $e')),
-      );
+      if (mounted) { // Check if widget is still in the tree
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur lors du chargement des hôtels: $e')),
+        );
+      }
     } finally {
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) { // Check if widget is still in the tree
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
-  // Méthode pour naviguer vers la page d'ajout d'hôtel
   Future<void> _navigateToAddHotel() async {
     final result = await Navigator.push(
-      context, 
+      context,
       MaterialPageRoute(builder: (context) => const AddHotelPage())
     );
-    
-    // Si des modifications ont été effectuées, recharger la liste
     if (result == true) {
       _loadHotels();
     }
   }
-  
-  // Méthode pour naviguer vers la page de modification d'hôtel
+
   Future<void> _editHotel(Map<String, dynamic> hotel) async {
     final result = await Navigator.push(
-      context, 
+      context,
       MaterialPageRoute(builder: (context) => EditHotelPage(hotelToEdit: hotel))
     );
-    
-    // Si des modifications ont été effectuées, recharger la liste
     if (result == true) {
       _loadHotels();
     }
   }
-  
-  // Méthode pour supprimer un hôtel
+
   Future<void> _deleteHotel(String hotelId) async {
-    // Montrer une boîte de dialogue de confirmation
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -119,72 +118,36 @@ class _AdminPageState extends State<AdminPage> {
           ),
           TextButton(
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Supprimer', style: TextStyle(color: Colors.red)),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Supprimer'),
           ),
         ],
       ),
-    ) ?? false;
-    
-    if (!confirmed) return;
-    
-    setState(() {
-      _isLoading = true;
-    });
-    
-    try {
-      await FirebaseDatabase.instance.ref('hotels').child(hotelId).remove();
-      await _loadHotels();
-      
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Hôtel supprimé avec succès')),
-        );
-      }
-    } catch (e) {
-      print('Erreur lors de la suppression de l\'hôtel: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur lors de la suppression de l\'hôtel: $e')),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
+    );
+
+    if (confirmed == true) {
+      try {
+        await FirebaseDatabase.instance.ref('hotels').child(hotelId).remove();
+        _loadHotels(); // Refresh list
+        if (mounted) { // Check if widget is still in the tree
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Hôtel supprimé avec succès')),
+          );
+        }
+      } catch (e) {
+        if (mounted) { // Check if widget is still in the tree
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Erreur lors de la suppression: $e')),
+          );
+        }
       }
     }
   }
-  
-  // Nouvelle méthode pour la déconnexion - version corrigée
+
   Future<void> _logout() async {
     try {
-      // Afficher une boîte de dialogue de confirmation
-      final confirmed = await showDialog<bool>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('Confirmer la déconnexion'),
-          content: const Text('Êtes-vous sûr de vouloir vous déconnecter ?'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('Annuler'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(true),
-              child: const Text('Déconnexion', style: TextStyle(color: Colors.red)),
-            ),
-          ],
-        ),
-      ) ?? false;
-      
-      if (!confirmed) return;
-
       await FirebaseAuth.instance.signOut();
-      
-      // Remplacer la navigation par route nommée par une navigation directe
       if (mounted) {
-        // Utilisez Navigator.pushReplacement au lieu de pushNamedAndRemoveUntil
         Navigator.pushAndRemoveUntil(
           context,
           MaterialPageRoute(builder: (context) => const LoginPage()),
@@ -200,54 +163,67 @@ class _AdminPageState extends State<AdminPage> {
       }
     }
   }
-  
-  // Méthode pour naviguer vers la page des clients
+
   void _navigateToClientsPage() {
     Navigator.push(
       context,
       MaterialPageRoute(builder: (context) => const ClientsPage()),
     );
   }
-  
-  // Méthode pour afficher une carte d'hôtel
+
+  // Method to navigate to AdminTourServicesPage
+  void _navigateToManageTourServicesPage() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const AdminTourServicesPage()),
+    );
+  }
+
   Widget _buildHotelCard(Map<String, dynamic> hotel) {
     return Card(
       elevation: 4,
       margin: const EdgeInsets.symmetric(vertical: 8),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Image from base64
-          hotel['imageData'] != null 
-              ? Image.memory(
-                  base64Decode(hotel['imageData']),
-                  height: 150,
-                  width: double.infinity,
-                  fit: BoxFit.cover,
-                )
-              : Container(
-                  height: 150,
-                  width: double.infinity,
-                  color: Colors.grey[300],
-                  child: const Icon(Icons.image, size: 50),
+          if (hotel['imageData'] != null)
+            ClipRRect(
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+              child: Image.memory(
+                base64Decode(hotel['imageData']),
+                height: 180,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) => const SizedBox(
+                  height: 180,
+                  child: Center(child: Icon(Icons.broken_image, size: 50, color: Colors.grey)),
                 ),
+              ),
+            )
+          else
+            Container(
+              height: 180,
+              decoration: BoxDecoration(
+                color: Colors.grey[200],
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+              ),
+              child: const Center(child: Icon(Icons.hotel_rounded, size: 60, color: Colors.grey)),
+            ),
           Padding(
-            padding: const EdgeInsets.all(8.0),
+            padding: const EdgeInsets.all(12.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  hotel['name'] ?? 'Inconnu',
+                  hotel['name'],
                   style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 4),
-                Text(hotel['location'] ?? 'Emplacement inconnu'),
-                const SizedBox(height: 4),
+                Text(hotel['location'], style: TextStyle(color: Colors.grey[700])),
+                const SizedBox(height: 8),
                 Text('Prix: ${hotel['price'] ?? 'N/A'}'),
                 const SizedBox(height: 4),
                 Text('Note: ${hotel['rating'] ?? 'N/A'}'),
-                
-                // Afficher les fonctionnalités
                 if (hotel['features'] != null && (hotel['features'] as List).isNotEmpty)
                   Padding(
                     padding: const EdgeInsets.only(top: 8.0),
@@ -275,8 +251,6 @@ class _AdminPageState extends State<AdminPage> {
                       ],
                     ),
                   ),
-                
-                // Afficher le téléphone si disponible
                 if (hotel['phone'] != null && hotel['phone'].toString().isNotEmpty)
                   Padding(
                     padding: const EdgeInsets.only(top: 4.0),
@@ -289,12 +263,9 @@ class _AdminPageState extends State<AdminPage> {
                     ),
                   ),
                 const SizedBox(height: 8),
-                
-                // Boutons d'action
                 Row(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
-                    // Bouton d'édition
                     ElevatedButton.icon(
                       onPressed: () => _editHotel(hotel),
                       icon: const Icon(Icons.edit),
@@ -305,7 +276,6 @@ class _AdminPageState extends State<AdminPage> {
                       ),
                     ),
                     const SizedBox(width: 8),
-                    // Bouton de suppression
                     ElevatedButton.icon(
                       onPressed: () => _deleteHotel(hotel['id']),
                       icon: const Icon(Icons.delete),
@@ -329,17 +299,15 @@ class _AdminPageState extends State<AdminPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Administration des hôtels'),
+        title: const Text('Administration'), // Updated title
         backgroundColor: Colors.deepPurple,
         foregroundColor: Colors.white,
         actions: [
-          // Bouton pour voir les clients
           IconButton(
-            icon: const Icon(Icons.people),
+            icon: const Icon(Icons.people_alt_outlined),
             tooltip: 'Gérer les clients',
             onPressed: _navigateToClientsPage,
           ),
-          // Bouton de déconnexion existant
           IconButton(
             icon: const Icon(Icons.exit_to_app),
             tooltip: 'Déconnexion',
@@ -355,17 +323,55 @@ class _AdminPageState extends State<AdminPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    'Liste des hôtels',
+                    'Panneau d\'Administration',
                     style: TextStyle(
-                      fontSize: 20,
+                      fontSize: 22,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 20),
+
+                  // Option to manage Tour Services
+                  Card(
+                    elevation: 2,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    child: ListTile(
+                      leading: const Icon(Icons.map_outlined, color: Colors.teal, size: 30),
+                      title: const Text('Gérer les Services de Guide/Tourisme', style: TextStyle(fontWeight: FontWeight.w500)),
+                      subtitle: const Text('Ajouter, modifier ou supprimer des services'),
+                      trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 18),
+                      onTap: _navigateToManageTourServicesPage,
+                      contentPadding: const EdgeInsets.symmetric(vertical: 10, horizontal: 15),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+
+                  // Hotels Section
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Gestion des Hôtels',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      TextButton.icon(
+                        icon: const Icon(Icons.add_business_outlined),
+                        label: const Text('Ajouter Hôtel'),
+                        onPressed: _navigateToAddHotel,
+                        style: TextButton.styleFrom(
+                          foregroundColor: Colors.deepPurple,
+                        ),
+                      )
+                    ],
+                  ),
+                  const SizedBox(height: 10),
                   Expanded(
                     child: _hotels.isEmpty
                         ? const Center(
-                            child: Text('Aucun hôtel ajouté pour le moment'),
+                            child: Text('Aucun hôtel ajouté pour le moment.\nCliquez sur "Ajouter Hôtel" pour commencer.', textAlign: TextAlign.center),
                           )
                         : ListView.builder(
                             itemCount: _hotels.length,
@@ -378,13 +384,15 @@ class _AdminPageState extends State<AdminPage> {
                 ],
               ),
             ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _navigateToAddHotel,
-        backgroundColor: Colors.deepPurple,
-        foregroundColor: Colors.white,
-        icon: const Icon(Icons.add),
-        label: const Text('Ajouter un hôtel'),
-      ),
+      floatingActionButton: _isLoading 
+          ? null 
+          : FloatingActionButton.extended(
+              onPressed: _navigateToAddHotel, // Or remove if the button above is sufficient
+              backgroundColor: Colors.deepPurple,
+              foregroundColor: Colors.white,
+              icon: const Icon(Icons.add),
+              label: const Text('Ajouter un Hôtel'),
+            ),
     );
   }
 }

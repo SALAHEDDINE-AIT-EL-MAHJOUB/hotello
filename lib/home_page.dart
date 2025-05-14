@@ -16,6 +16,7 @@ import 'package:flutter_application_1/widgets/chatbot_widget.dart';
 import 'package:flutter_application_1/about_us_page.dart';
 import 'package:flutter_application_1/help_center_page.dart';
 import 'package:flutter_application_1/settings_page.dart';
+import 'package:flutter_application_1/services_page.dart'; // Add this import
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -402,6 +403,10 @@ class _HomePageState extends State<HomePage> {
           _buildDrawerItem(Icons.settings_outlined, 'Paramètres', () {
             Navigator.pop(context);
             Navigator.push(context, MaterialPageRoute(builder: (context) => const SettingsPage()));
+          }),
+          _buildDrawerItem(Icons.room_service_outlined, 'Services', () { // New "Services" item
+            Navigator.pop(context);
+            Navigator.push(context, MaterialPageRoute(builder: (context) => const ServicesPage()));
           }),
           _buildDrawerItem(Icons.info_outline_rounded, 'À Propos', () {
             Navigator.pop(context);
