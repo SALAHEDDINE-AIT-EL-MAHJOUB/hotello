@@ -23,7 +23,7 @@ Hotello is a Flutter application that helps users discover and compare hotels in
 
 ## ✨ Features
 
-- Browse hotels in Marrakech with detailed information
+- Browse hotels  with detailed information
 - View hotel ratings, descriptions, and amenities
 - Compare prices and facilities
 - Filter hotels based on various criteria
