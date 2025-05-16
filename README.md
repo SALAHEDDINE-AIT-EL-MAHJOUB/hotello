@@ -10,9 +10,14 @@ Hotello is a Flutter application that helps users discover and compare hotels in
 ## 🖼️ Screenshots
 
 <div style="display: flex; justify-content: space-between;">
-    <img src="screenshot/screenshot1.jpeg" alt="Home Screen" width="30%"/>
-    <img src="screenshot/screenshot2.jpeg" alt="Hotel Details" width="30%"/>
-    <img src="screenshot/screenshot3.jpeg" alt="Booking Screen" width="30%"/>
+    <img src="assets/screenshot/screenshot1.jpeg" alt="Home Screen" width="30%"/>
+    <img src="assets/screenshot/screenshot2.jpeg" alt="Hotel Details" width="30%"/>
+    <img src="assets/screenshot/screenshot3.jpeg" alt="Booking Screen" width="30%"/>
+    <img src="assets/screenshot/screenshot4.jpeg" alt="Booking Screen" width="30%"/>
+    <img src="assets/screenshot/screenshot5.jpeg" alt="Booking Screen" width="30%"/>
+    <img src="assets/screenshot/screenshot6.jpeg" alt="Booking Screen" width="30%"/>
+    <img src="assets/screenshot/screenshot7.jpeg" alt="Booking Screen" width="30%"/>
+    <img src="assets/screenshot/screenshot8.jpeg" alt="Booking Screen" width="30%"/>
 </div>
 
 
