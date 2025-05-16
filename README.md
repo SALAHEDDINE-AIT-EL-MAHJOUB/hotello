@@ -1,8 +1,7 @@
 ﻿# Hotello - Hotel Booking App
 
 
-![Application Banner](https://example.com/app_banner.png)
-*Replace with your application banner image*
+
 
 ## 📱 About The Project
 
@@ -11,9 +10,9 @@ Hotello is a Flutter application that helps users discover and compare hotels in
 ## 🖼️ Screenshots
 
 <div style="display: flex; justify-content: space-between;">
-    <img src="https://example.com/screenshot1.png" alt="Home Screen" width="30%"/>
-    <img src="https://example.com/screenshot2.png" alt="Hotel Details" width="30%"/>
-    <img src="https://example.com/screenshot3.png" alt="Booking Screen" width="30%"/>
+    <img src="screenshot/screenshot1.png" alt="Home Screen" width="30%"/>
+    <img src="screenshot/screenshot2.png" alt="Hotel Details" width="30%"/>
+    <img src="screenshot/screenshot3.png" alt="Booking Screen" width="30%"/>
 </div>
 
 *Replace with actual screenshots of your application*
@@ -73,7 +72,7 @@ The application uses a Python script (api.py) to scrape hotel data from booking 
 - Distances from city center
 - Available facilities
 
-Data is stored in a CSV file (`marrakech_hotels.csv`) which is then accessed by the Flutter application.
+Data is stored in a CSV file (`hotels.csv`) which is then accessed by the Flutter application.
 
 To update the hotel data:
 ```sh
@@ -102,9 +101,9 @@ Distributed under the MIT License. See `LICENSE` for more information.
 
 ## 📞 Contact
 
-Your Name - [@yourusername](https://twitter.com/yourusername) - email@example.com
+Your Name - [@salaheddine ait el mahjoub] - salaheddineaielmahjoub@gmail.com
 
-Project Link: [https://github.com/yourusername/hotello](https://github.com/yourusername/hotello)
+
 
 ## 🙏 Acknowledgments
 
