@@ -9,7 +9,7 @@ Hotello is a Flutter application that helps users discover and compare hotels in
 ## 🎬 Vidéo de démonstration
 
 <div align="center">
-  <a href="assets/screenshot/demo.MP4">
+  <a href="assets/screenshot/demo.mp4">
     <img src="assets/screenshot/screenshot1.jpeg" alt="Cliquez pour voir la démonstration" width="300" style="border: 2px solid #ddd; border-radius: 8px;"/>
   </a>
   <p><i>👆 Cliquez sur l'image pour regarder la démonstration complète de VenteFacile</i></p>
