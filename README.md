@@ -112,11 +112,11 @@ Distributed under the MIT License. See `LICENSE` for more information.
 
 ## 📞 Contact
 
-Your Name - [@salaheddine ait el mahjoub] - salaheddineaielmahjoub@gmail.com
+[salaheddine ait el mahjoub](salaheddineaielmahjoub@gmail.com)
 
 
 
-## 🙏 Acknowledgments
+## 🙏 Documents
 
 - [Flutter Documentation](https://docs.flutter.dev/)
 - [BeautifulSoup Documentation](https://www.crummy.com/software/BeautifulSoup/bs4/doc/)
