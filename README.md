@@ -99,13 +99,7 @@ python api.py
 - [ ] Implement favorites system
 - [ ] Add dark mode support
 
-## 📄 License
 
-Distributed under the MIT License. See `LICENSE` for more information.
-
-## 📞 Contact
-
-[salaheddine ait el mahjoub](salaheddineaielmahjoub@gmail.com)
 
 
 
@@ -113,3 +107,4 @@ Distributed under the MIT License. See `LICENSE` for more information.
 
 - [Flutter Documentation](https://docs.flutter.dev/)
 - [BeautifulSoup Documentation](https://www.crummy.com/software/BeautifulSoup/bs4/doc/)
+
